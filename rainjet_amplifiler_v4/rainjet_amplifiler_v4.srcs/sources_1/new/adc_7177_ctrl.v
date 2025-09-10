@@ -39,10 +39,11 @@ module adc_7177_ctrl(
     input                   usb_trigger_value_valid,
     input                   usb_impedance_valid,
     input                   uart_ri,
-    input                   ad7177_switch_dl_en,
-    input [ 7:0]            ad7177_switch_dl_num,
+    input                   adc_switch_dl_req_en,
+    input [ 7:0]            adc_switch_dl_req_num,
 
     output reg              adc_initiate_complete,
+    output reg [ 7:0]       adc_switch_dl_rsp_num,
     output                  result_write_trigger,
     output reg              adc_wren,
     output reg [31:0]       adc_data,
@@ -253,7 +254,7 @@ reg                 ad7177_dout_2_d1,  ad7177_dout_2_d2 ;
 reg                 ad7177_dout_1_d1,  ad7177_dout_1_d2 ;
 reg                 ad7177_dout_0_d1,  ad7177_dout_0_d2 ;
 
-reg    [14:0]       adc_len_cnt; //ADC采样次数计数器
+reg    [14:0]       adc_len_cnt;
 
 reg                 ad7177_cs_initial;
 reg                 ad7177_sck_initial; 
@@ -318,11 +319,8 @@ reg    [27:0]       adc_result_chip_2_ch0_com3, adc_result_chip_2_ch1_com3, adc_
 reg    [27:0]       adc_result_chip_1_ch0_com3, adc_result_chip_1_ch1_com3, adc_result_chip_1_ch2_com3, adc_result_chip_1_ch3_com3;
 reg    [27:0]       adc_result_chip_0_ch0_com3, adc_result_chip_0_ch1_com3, adc_result_chip_0_ch2_com3, adc_result_chip_0_ch3_com3;
 
-/*------------------采样频率控制部分设计--------------*/
+//default: 48,000,000/19,200 = 2500hz;
 
-//默认为采样率 48,000,000/19,200 = 2500hz;
-
-//分离版本，一片7177只用2通道以满足采样频率在5K左右。因此adc_sample_period从÷4变为÷2
 wire   [31:0]       sample_period_clk_number_muxed = usb_cfg_bus[12] ? 19200 : adc_sample_period[31:1]; 
 reg                 ad7177_switch_dl_hd;
 reg  [ 7:0]         ad7177_switch_dl_total;
@@ -354,21 +352,20 @@ begin
     if (ad7177_switch_dl_total == TOTAL_DL_NUM_36)
     begin
         case(initial_index)
-        //'d1 : initial_cfg_word <= {8'h10, 16'h8004}; // ch1为AIN0为+，AIN4为-
-        //'d2 : initial_cfg_word <= {8'h11, 16'h8024}; // ch2为AIN1为+，AIN4为-
-        //'d3 : initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-        //'d4 : initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+        //'d1 : initial_cfg_word <= {8'h10, 16'h8004};
+        //'d2 : initial_cfg_word <= {8'h11, 16'h8024};
+        //'d3 : initial_cfg_word <= {8'h12, 16'h0044};
+        //'d4 : initial_cfg_word <= {8'h13, 16'h0064};
 
-        //20211125改为ch1为AIN0+,AIN1为-；ch2为AIN2+,AIN3为-
-        'd1: initial_cfg_word <= {8'h10, 16'h8001}; // ch1为AIN0为+，AIN1为-
-        'd2: initial_cfg_word <= {8'h11, 16'h8043}; // ch2为AIN2为+，AIN3为-
-        'd3: initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-        'd4: initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+        'd1: initial_cfg_word <= {8'h10, 16'h8001};
+        'd2: initial_cfg_word <= {8'h11, 16'h8043};
+        'd3: initial_cfg_word <= {8'h12, 16'h0044};
+        'd4: initial_cfg_word <= {8'h13, 16'h0064};
 
-        'd5: initial_cfg_word <= {8'h20, 16'h1f00}; /****************************/
-        'd6: initial_cfg_word <= {8'h21, 16'h1f00}; /****************************/
-        'd7: initial_cfg_word <= {8'h22, 16'h1f00}; /****************************/
-        'd8: initial_cfg_word <= {8'h23, 16'h1f00}; /****************************/
+        'd5: initial_cfg_word <= {8'h20, 16'h1f00};
+        'd6: initial_cfg_word <= {8'h21, 16'h1f00};
+        'd7: initial_cfg_word <= {8'h22, 16'h1f00};
+        'd8: initial_cfg_word <= {8'h23, 16'h1f00};
 
         //'d5 : initial_cfg_word <= {8'h20, 16'h1320}; /****************************/
         //'d6 : initial_cfg_word <= {8'h21, 16'h1320}; /*******     config   *******/
@@ -381,21 +378,20 @@ begin
     if (ad7177_switch_dl_total == TOTAL_DL_NUM_18)
     begin
         case(initial_index)
-        //'d1 : initial_cfg_word <= {8'h10, 16'h8004}; // ch1为AIN0为+，AIN4为-
-        //'d2 : initial_cfg_word <= {8'h11, 16'h8024}; // ch2为AIN1为+，AIN4为-
-        //'d3 : initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-        //'d4 : initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+        //'d1 : initial_cfg_word <= {8'h10, 16'h8004};
+        //'d2 : initial_cfg_word <= {8'h11, 16'h8024};
+        //'d3 : initial_cfg_word <= {8'h12, 16'h0044};
+        //'d4 : initial_cfg_word <= {8'h13, 16'h0064};
 
-        //20211125改为ch1为AIN0+,AIN1为-；ch2为AIN2+,AIN3为-
-        'd1: initial_cfg_word <= {8'h10, 16'h8001}; // ch1为AIN0为+，AIN1为-
-        'd2: initial_cfg_word <= {8'h11, 16'h0043}; // ch2为AIN2为+，AIN3为-
-        'd3: initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-        'd4: initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+        'd1: initial_cfg_word <= {8'h10, 16'h8001};
+        'd2: initial_cfg_word <= {8'h11, 16'h0043};
+        'd3: initial_cfg_word <= {8'h12, 16'h0044};
+        'd4: initial_cfg_word <= {8'h13, 16'h0064};
 
-        'd5: initial_cfg_word <= {8'h20, 16'h1f00}; /****************************/
-        'd6: initial_cfg_word <= {8'h21, 16'h1f00}; /****************************/
-        'd7: initial_cfg_word <= {8'h22, 16'h1f00}; /****************************/
-        'd8: initial_cfg_word <= {8'h23, 16'h1f00}; /****************************/
+        'd5: initial_cfg_word <= {8'h20, 16'h1f00};
+        'd6: initial_cfg_word <= {8'h21, 16'h1f00};
+        'd7: initial_cfg_word <= {8'h22, 16'h1f00};
+        'd8: initial_cfg_word <= {8'h23, 16'h1f00};
 
         //'d5 : initial_cfg_word <= {8'h20, 16'h1320}; /****************************/
         //'d6 : initial_cfg_word <= {8'h21, 16'h1320}; /*******     config   *******/
@@ -459,8 +455,8 @@ else if(initial_time_cnt == CFG_NUMBER * ONE_CFG_TIME)
 always @(posedge clk)
 if (~rst_n)
     ad7177_switch_dl_total <= TOTAL_DL_NUM_36;
-else if (ad7177_switch_dl_en)
-    ad7177_switch_dl_total <= ad7177_switch_dl_num;
+else if (adc_switch_dl_req_en)
+    ad7177_switch_dl_total <= adc_switch_dl_req_num;
 else
     ad7177_switch_dl_total <= ad7177_switch_dl_total;
 
@@ -470,7 +466,7 @@ if (~rst_n)
 else if (initial_period)
     ad7177_switch_dl_hd <= 1'b0;
 else
-    ad7177_switch_dl_hd <= ad7177_switch_dl_en;
+    ad7177_switch_dl_hd <= adc_switch_dl_req_en;
 
 always @(posedge clk)
 begin
@@ -497,7 +493,7 @@ begin
     initial_period_d <= initial_period;
 end
 
-reg    [ 7:0]       trigger_wait_cnt; //以第一通道为基准，dout下降沿后等一个spi时钟，确保所有通道都就绪。
+reg    [ 7:0]       trigger_wait_cnt;
 
 always @(posedge clk)
 if(~rst_n)
@@ -530,6 +526,14 @@ else if (initial_period_d & (~initial_period))
     adc_initiate_complete <= 1'b1;
 else
     adc_initiate_complete <= adc_initiate_complete;
+
+always @(posedge clk)
+if (~rst_n)
+    adc_switch_dl_rsp_num <= 8'd36;
+else if (ad7177_switch_dl_hd)
+    adc_switch_dl_rsp_num <= adc_switch_dl_req_num;
+else
+    adc_switch_dl_rsp_num <= adc_switch_dl_rsp_num;
 
 reg  [ 7:0]             trigger_value_send;
 reg  [ 7:0]             uart_trig_data_reg;
@@ -820,10 +824,10 @@ else if (adc_wren_cnt == 'd283 - 'd256)
     adc_wren <= 1'b0;
 
 /************************************************************************************************
-级联输出功能，
-连线采用4线通讯。CS,SCK,DATA0,DATA1。
-SCK频率为系统频率16分频，也即3M，每个通道28位ADC结果通过14个SCK完成，即4.7微秒
-一个板子36导联需要36×14=504个时钟，168微秒。
+jilian function:
+4 wire in all,  CS,SCK,DATA0,DATA1.
+The SCK is divided by 16 of clk, that is 3M, each ADC value(28 bit length) needs 14 SCKs, about 4.7us
+36 leads needs 36*14=504 SCKs, about 168us
 ************************************************************************************************/
 
 reg                 impedance_trigger_switch_pre;
@@ -1058,10 +1062,10 @@ begin
 end                      
 
 /************************************************************************************************
-级联输入功能，
-连线采用4线通讯。CS,SCK,DATA0,DATA1。
-SCK频率为系统频率16分频，也即3M，每个通道28位ADC结果通过14个SCK完成，即4.7微秒
-一个板子36导联需要36×14=504个时钟，168微秒。
+jilian function:
+4 wire in all,  CS,SCK,DATA0,DATA1.
+The SCK is divided by 16 of clk, that is 3M, each ADC value(28 bit length) needs 14 SCKs, about 4.7us
+36 leads needs 36*14=504 SCKs, about 168us
 ************************************************************************************************/
 reg    [ 7:0]       jl_com1_in_bit_cnt_slave;
 reg                 jl_com1_cs_in_d1;
@@ -1521,13 +1525,13 @@ else if(jl_com3_sck_in_r)
 
 reg    [31:0]       adc_trigger_length_shift;
 reg                 adc_sample_en_shift;
-reg    [15:0]       usb_cfg_bus_shift;  //阻抗检测模式及通道选择
-reg                 usb_cfg_valid_shift;//阻抗检测触发
+reg    [15:0]       usb_cfg_bus_shift;
+reg                 usb_cfg_valid_shift;
 reg    [31:0]       adc_sample_period_shift;
 
 reg    [31:0]       adc_trigger_length_slave;
-reg    [15:0]       usb_cfg_bus_slave;  //阻抗检测模式及通道选择
-reg                 usb_cfg_valid_slave;//阻抗检测触发
+reg    [15:0]       usb_cfg_bus_slave;
+reg                 usb_cfg_valid_slave;
 reg    [31:0]       adc_sample_period_slave;
 
 assign adc_trigger_length = (sw0_d & sw1_d) ? adc_trigger_length_usb    : adc_trigger_length_slave;
@@ -1537,7 +1541,7 @@ assign usb_cfg_valid      = (sw0_d & sw1_d) ? usb_cfg_valid_usb         : usb_cf
 assign adc_sample_period  = (sw0_d & sw1_d) ? usb_sample_period         : adc_sample_period_slave;
 
 always @(*)
-    usb_cfg_valid_slave <= usb_cfg_valid_shift; // 阻抗检测触发
+    usb_cfg_valid_slave <= usb_cfg_valid_shift;
 
 always @(posedge clk)
 begin
@@ -1775,7 +1779,7 @@ begin
     jl_com3_data_in1_d <= jl_com3_data_in1;
 end
 
-/*------------------阻抗检测控制部分设计--------------*/
+/*--------------IMPEDANCE SPECIAL--------------*/
 parameter           TIME_1ms = 48000;
 parameter           TIME_DLx = 145;
 parameter           IMPEDANCE_WIN_LEN = 128;

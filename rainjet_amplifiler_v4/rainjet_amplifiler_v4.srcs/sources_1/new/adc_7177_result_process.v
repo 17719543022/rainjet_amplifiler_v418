@@ -86,7 +86,6 @@ assign adc_result_ch1 = adc_result_ch1_sum[29:2];
 assign adc_result_ch2 = adc_result_ch2_sum[29:2];
 assign adc_result_ch3 = adc_result_ch3_sum[29:2];
 
-//分离版本，每片ADC处理2个通道
 //assign result_write_trigger = (spi_state_cnt == 'd7) & (adc_result_shift_reg[1:0] == 2'd1);
 //assign result_write_trigger = (spi_state_cnt == 'd7) & (adc_result_shift_reg[1:0] == 2'd3);
 assign result_write_trigger = (ad7177_switch_dl_total == TOTAL_DL_NUM_18) ? (spi_state_cnt == 'd7) : ((spi_state_cnt == 'd7) & (adc_result_shift_reg[1:0] == 2'd1));
@@ -95,4 +94,4 @@ assign result_write_trigger = (ad7177_switch_dl_total == TOTAL_DL_NUM_18) ? (spi
 
 
 endmodule
- 
+

@@ -72,6 +72,7 @@ private:
 	void DataBuffInit();
 	void ChartCtrlInit();
 	void DoQuery(UINT pos);
+	void DoUpdateADCInitiateStatus();
 	CComboBox m_comboDevices;
 	CCyUSBDevice* m_selectedUSBDevice;
 	CButton m_buttonVersion;
@@ -97,6 +98,7 @@ private:
 	CWinThread* m_pThread;
 	bool m_bButtonADCSampleClicked;
 	bool m_bButtonImpedanceClicked;
+	bool m_bADCInitiateComplete;
 	UINT m_uDlNum;
 	CChartCtrl m_ChartCtrl;
 	CChartLineSerie* pLineSeries;

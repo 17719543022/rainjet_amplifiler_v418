@@ -237,6 +237,7 @@ CDialogDlg::CDialogDlg(CWnd* pParent /*=nullptr*/)
 	m_strEndPointEnumerate0x88 = _T("");
 	m_bButtonADCSampleClicked = FALSE;
 	m_bButtonImpedanceClicked = FALSE;
+	m_bADCInitiateComplete = TRUE;
 	m_uDlNum = 0;
 }
 
@@ -1057,185 +1058,182 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 	PUCHAR* contextsInput = new PUCHAR[QUEUE_SIZE];
 	OVERLAPPED		inOvLap[MAX_QUEUE_SZ];
 
-	while (pThis->m_bButtonADCSampleClicked == TRUE)
+	// Allocate all the buffers for the queues
+	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
 	{
-		// Allocate all the buffers for the queues
-		for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
-		{
-			buffersInput[nCount] = new UCHAR[totalTransferSize];
-			inOvLap[nCount].hEvent = CreateEvent(NULL, false, false, NULL);
+		buffersInput[nCount] = new UCHAR[totalTransferSize];
+		inOvLap[nCount].hEvent = CreateEvent(NULL, false, false, NULL);
 
-			memset(buffersInput[nCount], 0xEF, totalTransferSize);
-		}
+		memset(buffersInput[nCount], 0xEF, totalTransferSize);
+	}
 
-		// Queue-up the first batch of transfer requests
-		for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
+	// Queue-up the first batch of transfer requests
+	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
+	{
+		////////////////////BeginDataXFer will kick start the IN transactions.................
+		contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+		if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
 		{
-			////////////////////BeginDataXFer will kick start the IN transactions.................
-			contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+
+			if (epBulkIn->UsbdStatus == USBD_STATUS_ENDPOINT_HALTED)
+			{
+				epBulkIn->Reset();
+				epBulkIn->Abort();
+				Sleep(50);
+				contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+
+			}
 			if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
 			{
-
-				if (epBulkIn->UsbdStatus == USBD_STATUS_ENDPOINT_HALTED)
-				{
-					epBulkIn->Reset();
-					epBulkIn->Abort();
-					Sleep(50);
-					contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
-
-				}
-				if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
-				{
-					// BeginDataXfer failed
-					// Handle the error now.
-					epBulkIn->Abort();
-					for (int j = 0; j < QUEUE_SIZE; j++)
-					{
-						CloseHandle(inOvLap[j].hEvent);
-						delete[] buffersInput[j];
-					}
-
-					// Bail out......
-					delete[]contextsInput;
-					delete[] buffersInput;
-					CString strMsg;
-					strMsg.Format("BeginDataXfer Failed with (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
-					AfxMessageBox(strMsg);
-					return -2;
-				}
-			}
-		}
-
-		// Mark the start time
-		/*SYSTEMTIME objStartTime;
-		GetSystemTime(&objStartTime);*/
-
-		long nCount = 0;
-		//FILE* fp = NULL;
-		while (pThis->m_bButtonADCSampleClicked == TRUE)
-		{
-			//if ((fp == NULL) && (pThis->m_bButtonADCSampleClicked == TRUE))
-			//{
-			//	fp = fopen("../samples/data.txt", "w");
-			//}
-
-			long readLength = totalTransferSize;
-
-			//////////Wait till the transfer completion..///////////////////////////
-			if (!epBulkIn->WaitForXfer(&inOvLap[nCount], TIMEOUT_PER_TRANSFER_MILLI_SEC))
-			{
-				//epBulkIn->Abort();
-				//if (epBulkIn->LastError == ERROR_IO_PENDING)
-				//	WaitForSingleObject(inOvLap[nCount].hEvent, TIMEOUT_PER_TRANSFER_MILLI_SEC);
-
-				//epBulkIn->Reset();
-				//Sleep(50);
-				pThis->m_selectedUSBDevice->Reset();
-				Sleep(TIMEOUT_PER_TRANSFER_MILLI_SEC);
-				break;
-			}
-
-			////////////Read the trasnferred data from the device///////////////////////////////////////
-			epBulkIn->FinishDataXfer(buffersInput[nCount], readLength, &inOvLap[nCount], contextsInput[nCount]);
-
-			//for (int mCount = 0; mCount < readLength; mCount++)
-			//{
-			//	fprintf(fp, "%02X", buffersInput[nCount][mCount]);
-
-			//	if (g_saveIndex + 1 == DATA_PAGE_LENGTH)
-			//	{
-			//		fprintf(fp, "\r");
-			//	}
-			//	else
-			//	{
-			//		fprintf(fp, "  ");
-			//	}
-			//	
-			//	g_saveIndex = (g_saveIndex + 1) % DATA_PAGE_LENGTH;
-			//}
-
-			int frameNumber = 0;
-			frameNumber += buffersInput[nCount][4] << 24;
-			frameNumber += buffersInput[nCount][5] << 16;
-			frameNumber += buffersInput[nCount][6] << 8;
-			frameNumber += buffersInput[nCount][7];
-
-			if ((frameNumber == 0) && (!g_frameCheakStart))
-			{
-				g_frameCheakStart = TRUE;
-				g_frameNumber = 32767;
-			}
-
-			if (((32768 + frameNumber - g_frameNumber) % 32768 != 1) && g_frameCheakStart)
-			{
-				CString strFrameNumberError;
-				strFrameNumberError.Format("g_frameNumber not continuous: %d - %d!!", g_frameNumber, frameNumber);
-				pThis->m_edtQueryResult.SetWindowText(strFrameNumberError);
-			}
-
-			g_frameNumber = frameNumber;
-
-			if ((buffersInput[nCount][0] == 0xAA)
-				&& (buffersInput[nCount][1] == 0x00)
-				&& (buffersInput[nCount][2] == 0x00)
-				&& ((buffersInput[nCount][3] == g_triggerValue) || (buffersInput[nCount][3] == g_uartTrigValue))
-				&& ((g_bButtonUSBTrigClicked == TRUE) || (g_bButtonUARTTrigClicked == TRUE)))
-			{
-				for (int mCount = 0; mCount < readLength; mCount++)
-				{
-					g_buffersTrigResult[mCount] = buffersInput[nCount][mCount];
-				}
-
-				g_bButtonUSBTrigClicked = FALSE;
-				g_bButtonUARTTrigClicked = FALSE;
-			}
-
-			g_yBuff[g_writeIndex] = buffersInput[nCount][g_daoLianIndex] << 20;
-			g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 1] << 12;
-			g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 2] << 4;
-			g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 3] >> 4;
-			g_yBuff[g_writeIndex] -= 0x8000000;
-
-			g_writeIndex = (g_writeIndex + 1) % DATA_SHOW_LENGTH;
-
-			//////////BytesXFerred is need for current data rate calculation.
-			///////// Refer to CalculateTransferSpeed function for the exact
-			///////// calculation.............................
-			//if (BytesXferred < 0) // Rollover - reset counters
-			//{
-			//    BytesXferred = 0;
-			//    GetSystemTime(&objStartTime);
-			//}
-
-
-			// Re-submit this queue element to keep the queue full
-			contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
-			if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
-			{
-				// BeginDataXfer failed............
-				// Time to bail out now............
+				// BeginDataXfer failed
+				// Handle the error now.
 				epBulkIn->Abort();
 				for (int j = 0; j < QUEUE_SIZE; j++)
 				{
 					CloseHandle(inOvLap[j].hEvent);
 					delete[] buffersInput[j];
 				}
-				delete[]contextsInput;
 
+				// Bail out......
+				delete[]contextsInput;
+				delete[] buffersInput;
 				CString strMsg;
-				strMsg.Format("BeginDataXfer Failed during buffer re-cycle (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
+				strMsg.Format("BeginDataXfer Failed with (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
 				AfxMessageBox(strMsg);
-				return -3;
+				return -2;
 			}
-			if (++nCount >= QUEUE_SIZE)
+		}
+	}
+
+	// Mark the start time
+	/*SYSTEMTIME objStartTime;
+	GetSystemTime(&objStartTime);*/
+
+	long nCount = 0;
+	//FILE* fp = NULL;
+	while (pThis->m_bButtonADCSampleClicked == TRUE)
+	{
+		//if ((fp == NULL) && (pThis->m_bButtonADCSampleClicked == TRUE))
+		//{
+		//	fp = fopen("../samples/data.txt", "w");
+		//}
+
+		long readLength = totalTransferSize;
+
+		//////////Wait till the transfer completion..///////////////////////////
+		if (!epBulkIn->WaitForXfer(&inOvLap[nCount], TIMEOUT_PER_TRANSFER_MILLI_SEC))
+		{
+			//epBulkIn->Abort();
+			//if (epBulkIn->LastError == ERROR_IO_PENDING)
+			//	WaitForSingleObject(inOvLap[nCount].hEvent, TIMEOUT_PER_TRANSFER_MILLI_SEC);
+
+			//epBulkIn->Reset();
+			//Sleep(50);
+			pThis->m_selectedUSBDevice->Reset();
+			Sleep(TIMEOUT_PER_TRANSFER_MILLI_SEC);
+			break;
+		}
+
+		////////////Read the trasnferred data from the device///////////////////////////////////////
+		epBulkIn->FinishDataXfer(buffersInput[nCount], readLength, &inOvLap[nCount], contextsInput[nCount]);
+
+		//for (int mCount = 0; mCount < readLength; mCount++)
+		//{
+		//	fprintf(fp, "%02X", buffersInput[nCount][mCount]);
+
+		//	if (g_saveIndex + 1 == DATA_PAGE_LENGTH)
+		//	{
+		//		fprintf(fp, "\r");
+		//	}
+		//	else
+		//	{
+		//		fprintf(fp, "  ");
+		//	}
+		//	
+		//	g_saveIndex = (g_saveIndex + 1) % DATA_PAGE_LENGTH;
+		//}
+
+		int frameNumber = 0;
+		frameNumber += buffersInput[nCount][4] << 24;
+		frameNumber += buffersInput[nCount][5] << 16;
+		frameNumber += buffersInput[nCount][6] << 8;
+		frameNumber += buffersInput[nCount][7];
+
+		if ((frameNumber == 0) && (!g_frameCheakStart))
+		{
+			g_frameCheakStart = TRUE;
+			g_frameNumber = 32767;
+		}
+
+		if (((32768 + frameNumber - g_frameNumber) % 32768 != 1) && g_frameCheakStart)
+		{
+			CString strFrameNumberError;
+			strFrameNumberError.Format("g_frameNumber not continuous: %d - %d!!", g_frameNumber, frameNumber);
+			pThis->m_edtQueryResult.SetWindowText(strFrameNumberError);
+		}
+
+		g_frameNumber = frameNumber;
+
+		if ((buffersInput[nCount][0] == 0xAA)
+			&& (buffersInput[nCount][1] == 0x00)
+			&& (buffersInput[nCount][2] == 0x00)
+			&& ((buffersInput[nCount][3] == g_triggerValue) || (buffersInput[nCount][3] == g_uartTrigValue))
+			&& ((g_bButtonUSBTrigClicked == TRUE) || (g_bButtonUARTTrigClicked == TRUE)))
+		{
+			for (int mCount = 0; mCount < readLength; mCount++)
 			{
-				nCount = 0;
-				//if ((pThis->m_bButtonADCSampleClicked == FALSE) && (fp != NULL))
-				//{
-				//	fclose(fp);
-				//	fp = NULL;
-				//}
+				g_buffersTrigResult[mCount] = buffersInput[nCount][mCount];
 			}
+
+			g_bButtonUSBTrigClicked = FALSE;
+			g_bButtonUARTTrigClicked = FALSE;
+		}
+
+		g_yBuff[g_writeIndex] = buffersInput[nCount][g_daoLianIndex] << 20;
+		g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 1] << 12;
+		g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 2] << 4;
+		g_yBuff[g_writeIndex] += buffersInput[nCount][g_daoLianIndex + 3] >> 4;
+		g_yBuff[g_writeIndex] -= 0x8000000;
+
+		g_writeIndex = (g_writeIndex + 1) % DATA_SHOW_LENGTH;
+
+		//////////BytesXFerred is need for current data rate calculation.
+		///////// Refer to CalculateTransferSpeed function for the exact
+		///////// calculation.............................
+		//if (BytesXferred < 0) // Rollover - reset counters
+		//{
+		//    BytesXferred = 0;
+		//    GetSystemTime(&objStartTime);
+		//}
+
+
+		// Re-submit this queue element to keep the queue full
+		contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+		if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
+		{
+			// BeginDataXfer failed............
+			// Time to bail out now............
+			epBulkIn->Abort();
+			for (int j = 0; j < QUEUE_SIZE; j++)
+			{
+				CloseHandle(inOvLap[j].hEvent);
+				delete[] buffersInput[j];
+			}
+			delete[]contextsInput;
+
+			CString strMsg;
+			strMsg.Format("BeginDataXfer Failed during buffer re-cycle (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
+			AfxMessageBox(strMsg);
+			return -3;
+		}
+		if (++nCount >= QUEUE_SIZE)
+		{
+			nCount = 0;
+			//if ((pThis->m_bButtonADCSampleClicked == FALSE) && (fp != NULL))
+			//{
+			//	fclose(fp);
+			//	fp = NULL;
+			//}
 		}
 	}
 
@@ -1546,12 +1544,193 @@ void CDialogDlg::DoQuery(UINT pos)
 	return;
 }
 
+void CDialogDlg::DoUpdateADCInitiateStatus()
+{
+	CString strINData = m_strEndPointEnumerate0x88;
+	CString strOutData = m_strEndPointEnumerate0x02;
+	TCHAR* pEnd;
+	BYTE inEpAddress = 0x0, outEpAddress = 0x0;
+
+	// Extract the endpoint addresses........
+	strINData = strINData.Right(4);
+	strOutData = strOutData.Right(4);
+
+	//inEpAddress = (BYTE)wcstoul(strINData.GetBuffer(0), &pEnd, 16);
+	inEpAddress = strtol(strINData, &pEnd, 16);
+	//outEpAddress = (BYTE)wcstoul(strOutData.GetBuffer(0), &pEnd, 16);
+	outEpAddress = strtol(strOutData, &pEnd, 16);
+	CCyUSBEndPoint* epBulkOut = m_selectedUSBDevice->EndPointOf(outEpAddress);
+	CCyUSBEndPoint* epBulkIn = m_selectedUSBDevice->EndPointOf(inEpAddress);
+
+	if (epBulkOut == NULL || epBulkIn == NULL) return;
+
+	//
+	// Get the max packet size (USB Frame Size).
+	// For bulk burst transfer, this size represent bulk burst size.
+	// Transfer size is now multiple USB frames defined by PACKETS_PER_TRANSFER
+	//
+	UCHAR QUEUE_SIZE = 1;
+	//UCHAR PACKETS_PER_TRANSFER = 2;
+	long totalTransferSize = epBulkIn->MaxPktSize * 2;
+	epBulkIn->SetXferSize(totalTransferSize);
+
+	long totalOutTransferSize = epBulkOut->MaxPktSize * 1;
+	epBulkOut->SetXferSize(totalOutTransferSize);
+
+	PUCHAR* buffersInput = new PUCHAR[QUEUE_SIZE];
+	PUCHAR* contextsInput = new PUCHAR[QUEUE_SIZE];
+	OVERLAPPED		inOvLap[MAX_QUEUE_SZ];
+
+	// Allocate all the buffers for the queues
+	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
+	{
+		buffersInput[nCount] = new UCHAR[totalTransferSize];
+		inOvLap[nCount].hEvent = CreateEvent(NULL, false, false, NULL);
+
+		memset(buffersInput[nCount], 0xEF, totalTransferSize);
+	}
+
+	OVERLAPPED  outOvLap;
+	UCHAR* bufferOutput = new UCHAR[totalOutTransferSize];
+	outOvLap.hEvent = CreateEvent(NULL, false, false, NULL);
+
+	BuildAtParameterQuery();
+	BuildAtInstruction('R');
+
+	for (int nCount = 0; nCount < g_atInstructionLength; nCount++)
+	{
+		bufferOutput[nCount] = g_atInstruction[nCount];
+	}
+
+	epBulkOut->TimeOut = TIMEOUT_PER_TRANSFER_MILLI_SEC;
+
+	// Queue-up the first batch of transfer requests
+	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
+	{
+		////////////////////BeginDataXFer will kick start the IN transactions.................
+		contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+		if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
+		{
+
+			if (epBulkIn->UsbdStatus == USBD_STATUS_ENDPOINT_HALTED)
+			{
+				epBulkIn->Reset();
+				epBulkIn->Abort();
+				Sleep(50);
+				contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
+
+			}
+			if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
+			{
+				// BeginDataXfer failed
+				// Handle the error now.
+				epBulkIn->Abort();
+				for (int j = 0; j < QUEUE_SIZE; j++)
+				{
+					CloseHandle(inOvLap[j].hEvent);
+					delete[] buffersInput[j];
+				}
+
+				// Bail out......
+				delete[]contextsInput;
+				delete[] buffersInput;
+				CString strMsg;
+				strMsg.Format("BeginDataXfer Failed with (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
+				AfxMessageBox(strMsg);
+				return;
+			}
+		}
+	}
+
+	// Mark the start time
+	/*SYSTEMTIME objStartTime;
+	GetSystemTime(&objStartTime);*/
+
+	long nINCount = 0;
+	while (nINCount < QUEUE_SIZE)
+	{
+		long readLength = totalTransferSize;
+
+		epBulkOut->XferData(bufferOutput, g_atInstructionLength);
+
+		//////////Wait till the transfer completion..///////////////////////////
+		if (!epBulkIn->WaitForXfer(&inOvLap[nINCount], TIMEOUT_PER_TRANSFER_MILLI_SEC))
+		{
+			epBulkIn->Abort();
+			if (epBulkIn->LastError == ERROR_IO_PENDING)
+				WaitForSingleObject(inOvLap[nINCount].hEvent, TIMEOUT_PER_TRANSFER_MILLI_SEC);
+		}
+
+		////////////Read the trasnferred data from the device///////////////////////////////////////
+		epBulkIn->FinishDataXfer(buffersInput[nINCount], readLength, &inOvLap[nINCount], contextsInput[nINCount]);
+
+		int candidateADCInitiateStatus = 0;
+		candidateADCInitiateStatus += buffersInput[0][4] << 24;
+		candidateADCInitiateStatus += buffersInput[0][5] << 16;
+		candidateADCInitiateStatus += buffersInput[0][6] << 8;
+		candidateADCInitiateStatus += buffersInput[0][7];
+
+		int candidateTotalDlNum = 0;
+		candidateTotalDlNum += buffersInput[0][20] << 24;
+		candidateTotalDlNum += buffersInput[0][21] << 16;
+		candidateTotalDlNum += buffersInput[0][22] << 8;
+		candidateTotalDlNum += buffersInput[0][23];
+
+		if (candidateADCInitiateStatus == 1)
+		{
+			m_bADCInitiateComplete = TRUE;
+
+			g_totalDlNum = candidateTotalDlNum;
+			CString strButtonDlNum("");
+			strButtonDlNum.Format("导联数（%d）", g_totalDlNum);
+			m_buttonDlNum.SetWindowText(strButtonDlNum);
+			m_buttonDlNum.EnableWindow(TRUE);
+		}
+
+		// Re-submit this queue element to keep the queue full
+		contextsInput[nINCount] = epBulkIn->BeginDataXfer(buffersInput[nINCount], totalTransferSize, &inOvLap[nINCount]);
+		if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
+		{
+			// BeginDataXfer failed............
+			// Time to bail out now............
+			epBulkIn->Abort();
+			for (int j = 0; j < QUEUE_SIZE; j++)
+			{
+				CloseHandle(inOvLap[j].hEvent);
+				delete[] buffersInput[j];
+			}
+			delete[]contextsInput;
+
+			CString strMsg;
+			strMsg.Format("BeginDataXfer Failed during buffer re-cycle (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
+			AfxMessageBox(strMsg);
+			return;
+		}
+		++nINCount;
+	}
+
+	epBulkIn->Abort();
+	for (int j = 0; j < QUEUE_SIZE; j++)
+	{
+		CloseHandle(inOvLap[j].hEvent);
+		delete[] buffersInput[j];
+		delete[] contextsInput[j];
+	}
+
+	// Bail out......
+	delete[]contextsInput;
+	delete[] buffersInput;
+	delete[] bufferOutput;
+	CloseHandle(outOvLap.hEvent);
+
+	return;
+}
+
 void CDialogDlg::OnBnClickedButtonTotalDlNum()
 {
-	g_totalDlNum = (g_totalDlNum == TOTAL_DL_NUM_36) ? TOTAL_DL_NUM_18 : TOTAL_DL_NUM_36;
-	CString strButtonDlNum("");
-	strButtonDlNum.Format("导联数（%d）", g_totalDlNum);
-	m_buttonDlNum.SetWindowText(strButtonDlNum);
+	m_buttonDlNum.EnableWindow(FALSE);
+	m_bADCInitiateComplete = FALSE;
+	UCHAR candidateTotalDlNum = (g_totalDlNum == TOTAL_DL_NUM_36) ? TOTAL_DL_NUM_18 : TOTAL_DL_NUM_36;
 
 	CString strOutData = m_strEndPointEnumerate0x02;
 	TCHAR* pEnd;
@@ -1580,7 +1759,7 @@ void CDialogDlg::OnBnClickedButtonTotalDlNum()
 	UCHAR* bufferOutput = new UCHAR[totalOutTransferSize];
 	outOvLap.hEvent = CreateEvent(NULL, false, false, NULL);
 
-	BuildAtParameterTotalDlNum(g_totalDlNum);
+	BuildAtParameterTotalDlNum(candidateTotalDlNum);
 	BuildAtInstruction('S');
 
 	for (int nCount = 0; nCount < g_atInstructionLength; nCount++)
@@ -1599,6 +1778,13 @@ void CDialogDlg::OnBnClickedButtonTotalDlNum()
 	// Bail out......
 	delete[] bufferOutput;
 	CloseHandle(outOvLap.hEvent);
+
+	while (m_bADCInitiateComplete == FALSE)
+	{
+		Sleep(100);
+
+		DoUpdateADCInitiateStatus();
+	}
 }
 
 void CDialogDlg::OnBnClickedButtonSampleFreq()

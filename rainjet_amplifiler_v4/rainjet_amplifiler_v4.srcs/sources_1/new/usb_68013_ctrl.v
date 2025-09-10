@@ -25,6 +25,7 @@ module usb_68013_ctrl (
     output reg              adc_sample_en_usb,
 
     input                   adc_initiate_complete,
+    input [ 7:0]            adc_switch_dl_rsp_num,
     input                   i2c_byte_out_en,
     input [ 7:0]            i2c_byte_out,
     input [31:0]            batarry_protocol,
@@ -38,8 +39,8 @@ module usb_68013_ctrl (
     output reg [127:0]      usb_cfg_bus,
     output reg              usb_impedance_valid,
     
-    output reg              ad7177_switch_dl_en,
-    output reg [ 7:0]       ad7177_switch_dl_num,
+    output reg              adc_switch_dl_req_en,
+    output reg [ 7:0]       adc_switch_dl_req_num,
 
     input [31:0]            real_max_value_1,
     input [31:0]            real_max_value_2,
@@ -190,7 +191,7 @@ module usb_68013_ctrl (
 parameter           MAIN_CLK_FREQ = 48000000;
 
 reg   [15:0]        pc_cmd_data;
-reg   [ 7:0]        pc_cmd_word_cnt; //对USB指令数据进行计数，单位是16bit，也就是2字节
+reg   [ 7:0]        pc_cmd_word_cnt;
 wire                usb_read_sample_point;
 reg                 usb_read_sample_point_d;
 wire                pc_cmd_start = usb_read_sample_point_d & (pc_cmd_data[7:0] == "@");
@@ -231,12 +232,12 @@ reg   [31:0]        usb_wr_data;
 reg                 usb_wren;
 
 parameter           USB_IDLE           = 8'd0;
-parameter           USB_READ_BEGIN     = 8'd1; //读数据的第一拍
-parameter           USB_READ_STATE     = 8'd2; //读数据状态
-parameter           USB_ACK_BEGIN      = 8'd3; //返回数据的第一拍
-parameter           USB_ACK_STATE      = 8'd4; //返回数据状态
-parameter           USB_ADC_WR_BEGIN   = 8'd5; //返回数据的第一拍
-parameter           USB_ADC_WR_STATE   = 8'd6; //返回数据状态
+parameter           USB_READ_BEGIN     = 8'd1;
+parameter           USB_READ_STATE     = 8'd2;
+parameter           USB_ACK_BEGIN      = 8'd3;
+parameter           USB_ACK_STATE      = 8'd4;
+parameter           USB_ADC_WR_BEGIN   = 8'd5;
+parameter           USB_ADC_WR_STATE   = 8'd6;
 
 wire  [31:0]        adc_sample_period_32 = usb_cfg_bus[127:96];
 
@@ -271,7 +272,7 @@ begin
 end
 else if (bulk_out_trigger & (pc_cur_cmd == "K"))
 begin
-    adc_sample_period  <= (shift_adc_sample_period >= 'd9500) ? 'd9500: shift_adc_sample_period; //频率限制
+    adc_sample_period  <= (shift_adc_sample_period >= 'd9500) ? 'd9500: shift_adc_sample_period;
     adc_trigger_mode   <= shift_adc_trigger_mode;  
     adc_trigger_source <= shift_adc_trigger_source;
     adc_trigger_delay  <= shift_adc_trigger_delay; 
@@ -315,20 +316,20 @@ else if ((pc_cur_cmd == "K") & cmd_data_capture_point)
 always @(posedge clk)
 if (~rst_n)
 begin
-    ad7177_switch_dl_en  <= 1'b0;
-    ad7177_switch_dl_num <= 8'd36;
+    adc_switch_dl_req_en  <= 1'b0;
+    adc_switch_dl_req_num <= 8'd36;
 end
 else if ((pc_cur_cmd == "S") & cmd_data_capture_point)
     case (pc_cmd_word_cnt)
     8'd1: 
     begin
-        ad7177_switch_dl_en        <= 1'b1;
-        ad7177_switch_dl_num[ 7:0] <= {pc_cmd_data_hex_l, pc_cmd_data_hex_h};
+        adc_switch_dl_req_en        <= 1'b1;
+        adc_switch_dl_req_num[ 7:0] <= {pc_cmd_data_hex_l, pc_cmd_data_hex_h};
     end
     default: 
     begin
-        ad7177_switch_dl_en        <= 1'b0;
-        ad7177_switch_dl_num[ 7:0] <= ad7177_switch_dl_num[ 7:0];
+        adc_switch_dl_req_en        <= 1'b0;
+        adc_switch_dl_req_num[ 7:0] <= adc_switch_dl_req_num[ 7:0];
     end
     endcase
 
@@ -482,7 +483,7 @@ begin
     10'd506: USB_DATA_OUT_CMD <= {16'h2520}; // Version
     10'd505: USB_DATA_OUT_CMD <= {16'h2608};
     10'd504: USB_DATA_OUT_CMD <= {16'h0000}; // Channel
-    10'd503: USB_DATA_OUT_CMD <= {16'h2400};
+    10'd503: USB_DATA_OUT_CMD <= {adc_switch_dl_rsp_num, 8'h00};
     10'd502: USB_DATA_OUT_CMD <= {adc_sample_period_32[23:16], adc_sample_period_32[31:24]}; // lADFreq
     10'd501: USB_DATA_OUT_CMD <= {adc_sample_period_32[7:0], adc_sample_period_32[15:8]};
     10'd500: USB_DATA_OUT_CMD <= {16'h0000};
