@@ -37,6 +37,9 @@ module usb_68013_ctrl (
     output reg              usb_trigger_value_valid,
     output reg [127:0]      usb_cfg_bus,
     output reg              usb_impedance_valid,
+    
+    output reg              ad7177_switch_dl_en,
+    output reg [ 7:0]       ad7177_switch_dl_num,
 
     input [31:0]            real_max_value_1,
     input [31:0]            real_max_value_2,
@@ -209,7 +212,8 @@ reg   [ 2:0]        shift_adc_trigger_source;
 reg   [23:0]        shift_adc_trigger_delay;
 reg   [31:0]        shift_adc_trigger_length;
 reg   [11:0]        shift_adc_trigger_level;
-wire  [ 3:0]        pc_cmd_data_hex_l, pc_cmd_data_hex_h;
+wire  [ 3:0]        pc_cmd_data_hex_l;
+wire  [ 3:0]        pc_cmd_data_hex_h;
 reg                 cmd_data_capture_point;
 
 reg   [23:0]        delay_cnt_100ms;
@@ -306,6 +310,26 @@ else if ((pc_cur_cmd == "K") & cmd_data_capture_point)
     8'd5: shift_adc_trigger_delay[15: 8] <= {pc_cmd_data_hex_l, pc_cmd_data_hex_h};
     8'd6: shift_adc_trigger_delay[ 7: 0] <= {pc_cmd_data_hex_l, pc_cmd_data_hex_h};
     default: ;
+    endcase
+
+always @(posedge clk)
+if (~rst_n)
+begin
+    ad7177_switch_dl_en  <= 1'b0;
+    ad7177_switch_dl_num <= 8'd36;
+end
+else if ((pc_cur_cmd == "S") & cmd_data_capture_point)
+    case (pc_cmd_word_cnt)
+    8'd1: 
+    begin
+        ad7177_switch_dl_en        <= 1'b1;
+        ad7177_switch_dl_num[ 7:0] <= {pc_cmd_data_hex_l, pc_cmd_data_hex_h};
+    end
+    default: 
+    begin
+        ad7177_switch_dl_en        <= 1'b0;
+        ad7177_switch_dl_num[ 7:0] <= ad7177_switch_dl_num[ 7:0];
+    end
     endcase
 
 always@(posedge clk)

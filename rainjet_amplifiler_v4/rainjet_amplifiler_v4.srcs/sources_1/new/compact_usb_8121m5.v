@@ -112,6 +112,9 @@ wire    [31:0]   adc_trigger_length;
 wire    [11:0]   adc_trigger_level;
 wire             adc_sample_en_usb;
 
+wire             ad7177_switch_dl_en;
+wire    [ 7:0]   ad7177_switch_dl_num;
+
 wire             adc_wren;
 wire    [31:0]   adc_data;
 
@@ -428,6 +431,8 @@ usb_68013_ctrl usb_68013_ctrl (
     .usb_cfg_valid                  (usb_cfg_valid          ),
     .usb_trigger_value_valid        (usb_trigger_value_valid),
     .usb_impedance_valid            (usb_impedance_valid    ),
+    .ad7177_switch_dl_en            (ad7177_switch_dl_en    ),
+    .ad7177_switch_dl_num           (ad7177_switch_dl_num   ),
     .real_max_value_1               (real_max_value_1       ),
     .real_max_value_2               (real_max_value_2       ),
     .real_max_value_3               (real_max_value_3       ),
@@ -644,20 +649,22 @@ adc_7177_ctrl adc_7177_ctrl (
     .adc_trigger_length_usb         (adc_trigger_length     ),
     .adc_sample_en_usb              (adc_sample_en_usb      ),
     .adc_sample_en_slave            (adc_sample_en_slave    ),
+    .usb_cfg_bus_usb                (usb_cfg_bus[15:0]      ),
+    .usb_cfg_valid_usb              (usb_cfg_valid          ),
+    .usb_sample_period              (usb_cfg_bus[127:96]    ),
+    .uart_trig_data                 (uart_trig_data         ),
+    .usb_trigger_value              (usb_cfg_bus[71:64]     ),
+    .usb_trigger_value_valid        (usb_trigger_value_valid),
+    .usb_impedance_valid            (usb_impedance_valid    ),
+    .uart_ri                        (uart_ri                ),
+    
+    .ad7177_switch_dl_en            (ad7177_switch_dl_en    ),
+    .ad7177_switch_dl_num           (ad7177_switch_dl_num   ),
 
     .adc_initiate_complete          (adc_initiate_complete  ),
     .result_write_trigger           (result_write_trigger   ),
     .adc_wren                       (adc_wren               ),
     .adc_data                       (adc_data               ),
-
-    .usb_trigger_value              (usb_cfg_bus[71:64]     ),
-    .usb_trigger_value_valid        (usb_trigger_value_valid),
-    .usb_impedance_valid            (usb_impedance_valid    ),
-    .usb_cfg_bus_usb                (usb_cfg_bus[15:0]      ),
-    .usb_sample_period              (usb_cfg_bus[127:96]    ),
-    .usb_cfg_valid_usb              (usb_cfg_valid          ),
-    .uart_trig_data                 (uart_trig_data         ),
-    .uart_ri                        (uart_ri                ),
 
     .sw0_d                          (sw0_d                  ),
     .sw1_d                          (sw1_d                  ),

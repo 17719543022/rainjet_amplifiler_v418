@@ -48,7 +48,7 @@ public:
 	afx_msg void OnBnClickedButtonTrigger();
 	afx_msg void OnBnClickedButtonUartTrig();
 	afx_msg void OnBnClickedButtonVersion();
-	afx_msg void OnBnClickedButtonDlNum();
+	afx_msg void OnBnClickedButtonTotalDlNum();
 	afx_msg void OnBnClickedButtonSampleFreq();
 	afx_msg void OnBnClickedButtonSetSampleFreq();
 	afx_msg void OnBnClickedButtonAdFreq();

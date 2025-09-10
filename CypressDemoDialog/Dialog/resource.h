@@ -37,6 +37,7 @@
 #define IDC_EDIT_SAMPLE_FREQ            1016
 #define IDC_BUTTON6                     1018
 #define IDC_BUTTON_DL_NUM               1018
+#define IDC_BUTTON_TOTAL_DL_NUM         1018
 #define IDC_BUTTON7                     1019
 #define IDC_BUTTON_SAMPLE_FREQ          1019
 #define IDC_BUTTON8                     1020

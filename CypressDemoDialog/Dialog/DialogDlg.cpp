@@ -53,11 +53,14 @@ END_MESSAGE_MAP()
 
 
 // CDialogDlg 对话框
+#define TOTAL_DL_NUM_18 18
+#define TOTAL_DL_NUM_36 36
 #define DATA_SHOW_LENGTH 1000
 #define DATA_PAGE_LENGTH 1024
 #define IDTIMER1 1
 #define IDTIMER2 2
 
+UCHAR g_totalDlNum = TOTAL_DL_NUM_36;
 unsigned short g_xBuff[DATA_SHOW_LENGTH] = { 0 };
 long g_yBuff[DATA_SHOW_LENGTH] = { 0 };
 double XValues[DATA_SHOW_LENGTH] = { 0 };
@@ -183,6 +186,13 @@ namespace {
 		sprintf((char*)g_atParameter, "%02d", value);
 	}
 
+	void BuildAtParameterTotalDlNum(UCHAR totalDlNum)
+	{
+		g_atParameterLength = 2;
+		memset(g_atParameter, 0, sizeof(g_atParameter));
+		sprintf((char*)g_atParameter, "%02x", totalDlNum);
+	}
+
 	void BuildAtInstruction(UCHAR cmdByte)
 	{
 		int i;
@@ -272,7 +282,7 @@ BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_VERSION, &CDialogDlg::OnBnClickedButtonVersion)
 	ON_BN_CLICKED(IDC_BUTTON_ADC_SAMPLE, &CDialogDlg::OnBnClickedButtonAdcSample)
 	ON_WM_TIMER()
-	ON_BN_CLICKED(IDC_BUTTON_DL_NUM, &CDialogDlg::OnBnClickedButtonDlNum)
+	ON_BN_CLICKED(IDC_BUTTON_TOTAL_DL_NUM, &CDialogDlg::OnBnClickedButtonTotalDlNum)
 	ON_BN_CLICKED(IDC_BUTTON_SAMPLE_FREQ, &CDialogDlg::OnBnClickedButtonSampleFreq)
 	ON_BN_CLICKED(IDC_BUTTON_SET_SAMPLE_FREQ, &CDialogDlg::OnBnClickedButtonSetSampleFreq)
 	ON_BN_CLICKED(IDC_BUTTON_TRIG_LENGTH, &CDialogDlg::OnBnClickedButtonTrigLength)
@@ -1536,9 +1546,59 @@ void CDialogDlg::DoQuery(UINT pos)
 	return;
 }
 
-void CDialogDlg::OnBnClickedButtonDlNum()
+void CDialogDlg::OnBnClickedButtonTotalDlNum()
 {
-	DoQuery(19);
+	g_totalDlNum = (g_totalDlNum == TOTAL_DL_NUM_36) ? TOTAL_DL_NUM_18 : TOTAL_DL_NUM_36;
+	CString strButtonDlNum("");
+	strButtonDlNum.Format("导联数（%d）", g_totalDlNum);
+	m_buttonDlNum.SetWindowText(strButtonDlNum);
+
+	CString strOutData = m_strEndPointEnumerate0x02;
+	TCHAR* pEnd;
+	BYTE outEpAddress = 0x0;
+
+	// Extract the endpoint addresses........
+	strOutData = strOutData.Right(4);
+
+	//outEpAddress = (BYTE)wcstoul(strOutData.GetBuffer(0), &pEnd, 16);
+	outEpAddress = strtol(strOutData, &pEnd, 16);
+	CCyUSBEndPoint* epBulkOut = m_selectedUSBDevice->EndPointOf(outEpAddress);
+
+	if (epBulkOut == NULL) return;
+
+	//
+	// Get the max packet size (USB Frame Size).
+	// For bulk burst transfer, this size represent bulk burst size.
+	// Transfer size is now multiple USB frames defined by PACKETS_PER_TRANSFER
+	//
+	UCHAR QUEUE_SIZE = 1;
+	UCHAR PACKETS_PER_TRANSFER = 1;
+	long totalOutTransferSize = epBulkOut->MaxPktSize * PACKETS_PER_TRANSFER;
+	epBulkOut->SetXferSize(totalOutTransferSize);
+
+	OVERLAPPED  outOvLap;
+	UCHAR* bufferOutput = new UCHAR[totalOutTransferSize];
+	outOvLap.hEvent = CreateEvent(NULL, false, false, NULL);
+
+	BuildAtParameterTotalDlNum(g_totalDlNum);
+	BuildAtInstruction('S');
+
+	for (int nCount = 0; nCount < g_atInstructionLength; nCount++)
+	{
+		bufferOutput[nCount] = g_atInstruction[nCount];
+	}
+
+	epBulkOut->TimeOut = TIMEOUT_PER_TRANSFER_MILLI_SEC;
+
+	// Mark the start time
+	/*SYSTEMTIME objStartTime;
+	GetSystemTime(&objStartTime);*/
+
+	epBulkOut->XferData(bufferOutput, g_atInstructionLength);
+
+	// Bail out......
+	delete[] bufferOutput;
+	CloseHandle(outOvLap.hEvent);
 }
 
 void CDialogDlg::OnBnClickedButtonSampleFreq()
@@ -1797,5 +1857,6 @@ bool CDialogDlg::SurveyExistingComm()
 
 	return true;
 }
+
 
 

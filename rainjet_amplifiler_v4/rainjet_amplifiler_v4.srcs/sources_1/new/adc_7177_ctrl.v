@@ -39,6 +39,8 @@ module adc_7177_ctrl(
     input                   usb_trigger_value_valid,
     input                   usb_impedance_valid,
     input                   uart_ri,
+    input                   ad7177_switch_dl_en,
+    input [ 7:0]            ad7177_switch_dl_num,
 
     output reg              adc_initiate_complete,
     output                  result_write_trigger,
@@ -220,6 +222,8 @@ parameter           ONE_CFG_BIT = 14;
 parameter           ONE_CFG_TIME = 32768;
 parameter           CFG_NUMBER = 10;
 parameter           INITIAL_WAIT_TIME = 96000000; //100ms
+parameter           TOTAL_DL_NUM_18 = 18;
+parameter           TOTAL_DL_NUM_36 = 36;
 
 reg                 initial_period;
 
@@ -320,6 +324,8 @@ reg    [27:0]       adc_result_chip_0_ch0_com3, adc_result_chip_0_ch1_com3, adc_
 
 //分离版本，一片7177只用2通道以满足采样频率在5K左右。因此adc_sample_period从÷4变为÷2
 wire   [31:0]       sample_period_clk_number_muxed = usb_cfg_bus[12] ? 19200 : adc_sample_period[31:1]; 
+reg                 ad7177_switch_dl_hd;
+reg  [ 7:0]         ad7177_switch_dl_total;
 
 always @(posedge clk)
 if(~rst_n)
@@ -345,30 +351,60 @@ else if ((spi_state_cnt[4:0] == 'd31)&(spi_bit_cnt <23)&valid_initial_cycle)
 
 always @(posedge clk)
 begin
-    case(initial_index)
-    //'d1 : initial_cfg_word <= {8'h10, 16'h8004}; // ch1为AIN0为+，AIN4为-
-    //'d2 : initial_cfg_word <= {8'h11, 16'h8024}; // ch2为AIN1为+，AIN4为-
-    //'d3 : initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-    //'d4 : initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
-     
-    //20211125改为ch1为AIN0+,AIN1为-；ch2为AIN2+,AIN3为-                                               
-    'd1: initial_cfg_word <= {8'h10, 16'h8001}; // ch1为AIN0为+，AIN1为-
-    'd2: initial_cfg_word <= {8'h11, 16'h8043}; // ch2为AIN2为+，AIN3为-
-    'd3: initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
-    'd4: initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+    if (ad7177_switch_dl_total == TOTAL_DL_NUM_36)
+    begin
+        case(initial_index)
+        //'d1 : initial_cfg_word <= {8'h10, 16'h8004}; // ch1为AIN0为+，AIN4为-
+        //'d2 : initial_cfg_word <= {8'h11, 16'h8024}; // ch2为AIN1为+，AIN4为-
+        //'d3 : initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
+        //'d4 : initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
 
-    'd5: initial_cfg_word <= {8'h20, 16'h1f00}; /****************************/
-    'd6: initial_cfg_word <= {8'h21, 16'h1f00}; /****************************/
-    'd7: initial_cfg_word <= {8'h22, 16'h1f00}; /****************************/
-    'd8: initial_cfg_word <= {8'h23, 16'h1f00}; /****************************/
+        //20211125改为ch1为AIN0+,AIN1为-；ch2为AIN2+,AIN3为-
+        'd1: initial_cfg_word <= {8'h10, 16'h8001}; // ch1为AIN0为+，AIN1为-
+        'd2: initial_cfg_word <= {8'h11, 16'h8043}; // ch2为AIN2为+，AIN3为-
+        'd3: initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
+        'd4: initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
 
-    //'d5 : initial_cfg_word <= {8'h20, 16'h1320}; /****************************/
-    //'d6 : initial_cfg_word <= {8'h21, 16'h1320}; /*******     config   *******/
-    //'d7 : initial_cfg_word <= {8'h22, 16'h1320}; /*******    register  *******/
-    //'d8 : initial_cfg_word <= {8'h23, 16'h1320}; /****************************/
-    'd9: initial_cfg_word <= {8'h02, 16'h10c2}; /****************************/
-    default: initial_cfg_word <= {8'h0, 16'h0};
-    endcase
+        'd5: initial_cfg_word <= {8'h20, 16'h1f00}; /****************************/
+        'd6: initial_cfg_word <= {8'h21, 16'h1f00}; /****************************/
+        'd7: initial_cfg_word <= {8'h22, 16'h1f00}; /****************************/
+        'd8: initial_cfg_word <= {8'h23, 16'h1f00}; /****************************/
+
+        //'d5 : initial_cfg_word <= {8'h20, 16'h1320}; /****************************/
+        //'d6 : initial_cfg_word <= {8'h21, 16'h1320}; /*******     config   *******/
+        //'d7 : initial_cfg_word <= {8'h22, 16'h1320}; /*******    register  *******/
+        //'d8 : initial_cfg_word <= {8'h23, 16'h1320}; /****************************/
+        'd9: initial_cfg_word <= {8'h02, 16'h10c2}; /****************************/
+        default: initial_cfg_word <= {8'h0, 16'h0};
+        endcase
+    end
+    if (ad7177_switch_dl_total == TOTAL_DL_NUM_18)
+    begin
+        case(initial_index)
+        //'d1 : initial_cfg_word <= {8'h10, 16'h8004}; // ch1为AIN0为+，AIN4为-
+        //'d2 : initial_cfg_word <= {8'h11, 16'h8024}; // ch2为AIN1为+，AIN4为-
+        //'d3 : initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
+        //'d4 : initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+
+        //20211125改为ch1为AIN0+,AIN1为-；ch2为AIN2+,AIN3为-
+        'd1: initial_cfg_word <= {8'h10, 16'h8001}; // ch1为AIN0为+，AIN1为-
+        'd2: initial_cfg_word <= {8'h11, 16'h0043}; // ch2为AIN2为+，AIN3为-
+        'd3: initial_cfg_word <= {8'h12, 16'h0044}; // ch3关闭
+        'd4: initial_cfg_word <= {8'h13, 16'h0064}; // ch4关闭
+
+        'd5: initial_cfg_word <= {8'h20, 16'h1f00}; /****************************/
+        'd6: initial_cfg_word <= {8'h21, 16'h1f00}; /****************************/
+        'd7: initial_cfg_word <= {8'h22, 16'h1f00}; /****************************/
+        'd8: initial_cfg_word <= {8'h23, 16'h1f00}; /****************************/
+
+        //'d5 : initial_cfg_word <= {8'h20, 16'h1320}; /****************************/
+        //'d6 : initial_cfg_word <= {8'h21, 16'h1320}; /*******     config   *******/
+        //'d7 : initial_cfg_word <= {8'h22, 16'h1320}; /*******    register  *******/
+        //'d8 : initial_cfg_word <= {8'h23, 16'h1320}; /****************************/
+        'd9: initial_cfg_word <= {8'h02, 16'h10c2}; /****************************/
+        default: initial_cfg_word <= {8'h0, 16'h0};
+        endcase
+    end
 end
 
 always @(posedge clk)
@@ -413,12 +449,28 @@ begin
 end
 
 always @(posedge clk)
-if(~rst_n)
+if (~rst_n)
     initial_period <= 'd0;
-else if (initial_wait_cnt == 'd1)
+else if ((initial_wait_cnt == 'd1) | ad7177_switch_dl_hd)
     initial_period <= 1'b1;
 else if(initial_time_cnt == CFG_NUMBER * ONE_CFG_TIME)
     initial_period <= 'd0;
+
+always @(posedge clk)
+if (~rst_n)
+    ad7177_switch_dl_total <= TOTAL_DL_NUM_36;
+else if (ad7177_switch_dl_en)
+    ad7177_switch_dl_total <= ad7177_switch_dl_num;
+else
+    ad7177_switch_dl_total <= ad7177_switch_dl_total;
+
+always @(posedge clk)
+if (~rst_n)
+    ad7177_switch_dl_hd <= 1'b0;
+else if (initial_period)
+    ad7177_switch_dl_hd <= 1'b0;
+else
+    ad7177_switch_dl_hd <= ad7177_switch_dl_en;
 
 always @(posedge clk)
 begin
@@ -470,10 +522,14 @@ begin
 end
 
 always @(posedge clk)
-if(~rst_n)
+if (~rst_n)
+    adc_initiate_complete <= 1'b0;
+else if (ad7177_switch_dl_hd)
     adc_initiate_complete <= 1'b0;
 else if (initial_period_d & (~initial_period))
     adc_initiate_complete <= 1'b1;
+else
+    adc_initiate_complete <= adc_initiate_complete;
 
 reg  [ 7:0]             trigger_value_send;
 reg  [ 7:0]             uart_trig_data_reg;
@@ -498,25 +554,25 @@ else if (uart_ri)
 else if (usb_trigger_value_valid)  
     uart_trig_data_reg <= usb_trigger_value;  
 
-adc_7177_result_process result_proc_18(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_18_d2), .adc_result_ch0(adc_result_chip_9_ch0), .adc_result_ch1(adc_result_chip_9_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_17(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_17_d2), .adc_result_ch0(adc_result_chip_8_ch2), .adc_result_ch1(adc_result_chip_8_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_16(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_16_d2), .adc_result_ch0(adc_result_chip_8_ch0), .adc_result_ch1(adc_result_chip_8_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_15(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_15_d2), .adc_result_ch0(adc_result_chip_7_ch2), .adc_result_ch1(adc_result_chip_7_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_14(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_14_d2), .adc_result_ch0(adc_result_chip_7_ch0), .adc_result_ch1(adc_result_chip_7_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_13(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_13_d2), .adc_result_ch0(adc_result_chip_6_ch2), .adc_result_ch1(adc_result_chip_6_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_12(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_12_d2), .adc_result_ch0(adc_result_chip_6_ch0), .adc_result_ch1(adc_result_chip_6_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_11(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_11_d2), .adc_result_ch0(adc_result_chip_5_ch2), .adc_result_ch1(adc_result_chip_5_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_10(.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_10_d2), .adc_result_ch0(adc_result_chip_5_ch0), .adc_result_ch1(adc_result_chip_5_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_9 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_9_d2), .adc_result_ch0(adc_result_chip_4_ch2), .adc_result_ch1(adc_result_chip_4_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_8 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_8_d2), .adc_result_ch0(adc_result_chip_4_ch0), .adc_result_ch1(adc_result_chip_4_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_7 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_7_d2), .adc_result_ch0(adc_result_chip_3_ch2), .adc_result_ch1(adc_result_chip_3_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger(result_write_trigger));
-adc_7177_result_process result_proc_6 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_6_d2), .adc_result_ch0(adc_result_chip_3_ch0), .adc_result_ch1(adc_result_chip_3_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_5 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_5_d2), .adc_result_ch0(adc_result_chip_2_ch2), .adc_result_ch1(adc_result_chip_2_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_4 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_4_d2), .adc_result_ch0(adc_result_chip_2_ch0), .adc_result_ch1(adc_result_chip_2_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_3 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_3_d2), .adc_result_ch0(adc_result_chip_1_ch2), .adc_result_ch1(adc_result_chip_1_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_2 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_2_d2), .adc_result_ch0(adc_result_chip_1_ch0), .adc_result_ch1(adc_result_chip_1_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_1 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_1_d2), .adc_result_ch0(adc_result_chip_0_ch2), .adc_result_ch1(adc_result_chip_0_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_0 (.clk(clk), .rst_n(rst_n), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_0_d2), .adc_result_ch0(adc_result_chip_0_ch0), .adc_result_ch1(adc_result_chip_0_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_18(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_18_d2), .adc_result_ch0(adc_result_chip_9_ch0), .adc_result_ch1(adc_result_chip_9_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_17(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_17_d2), .adc_result_ch0(adc_result_chip_8_ch2), .adc_result_ch1(adc_result_chip_8_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_16(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_16_d2), .adc_result_ch0(adc_result_chip_8_ch0), .adc_result_ch1(adc_result_chip_8_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_15(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_15_d2), .adc_result_ch0(adc_result_chip_7_ch2), .adc_result_ch1(adc_result_chip_7_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_14(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_14_d2), .adc_result_ch0(adc_result_chip_7_ch0), .adc_result_ch1(adc_result_chip_7_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_13(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_13_d2), .adc_result_ch0(adc_result_chip_6_ch2), .adc_result_ch1(adc_result_chip_6_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_12(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_12_d2), .adc_result_ch0(adc_result_chip_6_ch0), .adc_result_ch1(adc_result_chip_6_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_11(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_11_d2), .adc_result_ch0(adc_result_chip_5_ch2), .adc_result_ch1(adc_result_chip_5_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_10(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_10_d2), .adc_result_ch0(adc_result_chip_5_ch0), .adc_result_ch1(adc_result_chip_5_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_9 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_9_d2), .adc_result_ch0(adc_result_chip_4_ch2), .adc_result_ch1(adc_result_chip_4_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_8 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_8_d2), .adc_result_ch0(adc_result_chip_4_ch0), .adc_result_ch1(adc_result_chip_4_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_7 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_7_d2), .adc_result_ch0(adc_result_chip_3_ch2), .adc_result_ch1(adc_result_chip_3_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger(result_write_trigger));
+adc_7177_result_process result_proc_6 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_6_d2), .adc_result_ch0(adc_result_chip_3_ch0), .adc_result_ch1(adc_result_chip_3_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_5 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_5_d2), .adc_result_ch0(adc_result_chip_2_ch2), .adc_result_ch1(adc_result_chip_2_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_4 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_4_d2), .adc_result_ch0(adc_result_chip_2_ch0), .adc_result_ch1(adc_result_chip_2_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_3 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_3_d2), .adc_result_ch0(adc_result_chip_1_ch2), .adc_result_ch1(adc_result_chip_1_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_2 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_2_d2), .adc_result_ch0(adc_result_chip_1_ch0), .adc_result_ch1(adc_result_chip_1_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_1 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_1_d2), .adc_result_ch0(adc_result_chip_0_ch2), .adc_result_ch1(adc_result_chip_0_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
+adc_7177_result_process result_proc_0 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_0_d2), .adc_result_ch0(adc_result_chip_0_ch0), .adc_result_ch1(adc_result_chip_0_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
 
 always @(posedge clk)
 begin
@@ -1723,7 +1779,6 @@ end
 parameter           TIME_1ms = 48000;
 parameter           TIME_DLx = 145;
 parameter           IMPEDANCE_WIN_LEN = 128;
-parameter           DL_TOTAL_NUM = 36;
 reg  [ 7:0]         dl_num_instruction_pre3;
 reg  [ 7:0]         dl_num_instruction_pre2;
 reg  [ 7:0]         dl_num_instruction_pre1;
@@ -1848,7 +1903,7 @@ else
 always @(posedge clk or negedge rst_n)
 if (~rst_n)
     counter_dl <= 8'hFF;
-else if ((counter_dl < DL_TOTAL_NUM - 'd1) | (&counter_dl))
+else if ((counter_dl < TOTAL_DL_NUM_36 - 'd1) | (&counter_dl))
 begin
     if (((counter_ms == TIME_DLx - 1) | (&counter_dl)) & (counter_clk == TIME_1ms - 1))
         counter_dl <= counter_dl + 1;
