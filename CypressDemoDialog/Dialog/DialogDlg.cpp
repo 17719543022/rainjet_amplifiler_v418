@@ -357,6 +357,7 @@ BOOL CDialogDlg::OnInitDialog()
 	EnumerateEndpointForTheSelectedDevice();
 
 	UpdateData(FALSE);
+	DoUpdateADCInitiateStatus();
 
 	DataBuffInit();
 	m_AxisMin = 32400;
@@ -1676,7 +1677,7 @@ void CDialogDlg::DoUpdateADCInitiateStatus()
 		candidateTotalDlNum += buffersInput[0][22] << 8;
 		candidateTotalDlNum += buffersInput[0][23];
 
-		if (candidateADCInitiateStatus == 1)
+		if ((candidateADCInitiateStatus == 1) && ((candidateTotalDlNum == TOTAL_DL_NUM_18) || (candidateTotalDlNum == TOTAL_DL_NUM_36)))
 		{
 			m_bADCInitiateComplete = TRUE;
 

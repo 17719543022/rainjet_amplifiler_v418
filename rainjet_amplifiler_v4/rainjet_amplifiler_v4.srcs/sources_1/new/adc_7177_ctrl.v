@@ -320,10 +320,14 @@ reg    [27:0]       adc_result_chip_1_ch0_com3, adc_result_chip_1_ch1_com3, adc_
 reg    [27:0]       adc_result_chip_0_ch0_com3, adc_result_chip_0_ch1_com3, adc_result_chip_0_ch2_com3, adc_result_chip_0_ch3_com3;
 
 //default: 48,000,000/19,200 = 2500hz;
-
-wire   [31:0]       sample_period_clk_number_muxed = usb_cfg_bus[12] ? 19200 : adc_sample_period[31:1]; 
+wire   [31:0]       sample_period_clk_number_muxed = usb_cfg_bus[12] ? 19200 : adc_sample_period[31:1];
+wire                result_write_trigger_pre;
 reg                 ad7177_switch_dl_hd;
+reg                 ad7177_switch_dl_hd_ex;
 reg  [ 7:0]         ad7177_switch_dl_total;
+reg                 ad7177_switch_dl_level;
+
+assign result_write_trigger = result_write_trigger_pre & (~ad7177_switch_dl_level);
 
 always @(posedge clk)
 if(~rst_n)
@@ -349,7 +353,7 @@ else if ((spi_state_cnt[4:0] == 'd31)&(spi_bit_cnt <23)&valid_initial_cycle)
 
 always @(posedge clk)
 begin
-    if (ad7177_switch_dl_total == TOTAL_DL_NUM_36)
+    if (adc_switch_dl_req_num == TOTAL_DL_NUM_36)
     begin
         case(initial_index)
         //'d1 : initial_cfg_word <= {8'h10, 16'h8004};
@@ -375,7 +379,7 @@ begin
         default: initial_cfg_word <= {8'h0, 16'h0};
         endcase
     end
-    if (ad7177_switch_dl_total == TOTAL_DL_NUM_18)
+    if (adc_switch_dl_req_num == TOTAL_DL_NUM_18)
     begin
         case(initial_index)
         //'d1 : initial_cfg_word <= {8'h10, 16'h8004};
@@ -447,7 +451,7 @@ end
 always @(posedge clk)
 if (~rst_n)
     initial_period <= 'd0;
-else if ((initial_wait_cnt == 'd1) | ad7177_switch_dl_hd)
+else if ((initial_wait_cnt == 'd1) | ad7177_switch_dl_hd_ex)
     initial_period <= 1'b1;
 else if(initial_time_cnt == CFG_NUMBER * ONE_CFG_TIME)
     initial_period <= 'd0;
@@ -455,7 +459,7 @@ else if(initial_time_cnt == CFG_NUMBER * ONE_CFG_TIME)
 always @(posedge clk)
 if (~rst_n)
     ad7177_switch_dl_total <= TOTAL_DL_NUM_36;
-else if (adc_switch_dl_req_en)
+else if (initial_period_d & (~initial_period))
     ad7177_switch_dl_total <= adc_switch_dl_req_num;
 else
     ad7177_switch_dl_total <= ad7177_switch_dl_total;
@@ -467,6 +471,24 @@ else if (initial_period)
     ad7177_switch_dl_hd <= 1'b0;
 else
     ad7177_switch_dl_hd <= adc_switch_dl_req_en;
+
+always @(posedge clk)
+if (~rst_n)
+    ad7177_switch_dl_hd_ex <= 1'b0;
+else if (ad7177_switch_dl_level & result_write_trigger_pre)
+    ad7177_switch_dl_hd_ex <= 1'b1;
+else
+    ad7177_switch_dl_hd_ex <= 1'b0;
+
+always @(posedge clk)
+if (~rst_n)
+    ad7177_switch_dl_level <= 1'b0;
+else if (ad7177_switch_dl_hd)
+    ad7177_switch_dl_level <= 1'b1;
+else if (initial_period_d & (~initial_period))
+    ad7177_switch_dl_level <= 1'b0;
+else
+    ad7177_switch_dl_level <= ad7177_switch_dl_level;
 
 always @(posedge clk)
 begin
@@ -496,9 +518,9 @@ end
 reg    [ 7:0]       trigger_wait_cnt;
 
 always @(posedge clk)
-if(~rst_n)
+if (~rst_n)
     trigger_wait_cnt <= 'd0;
-else if (ad7177_dout_7_d2 & (~ad7177_dout_7_d1) & adc_initiate_complete & (~adc_result_read_period))
+else if (ad7177_dout_7_d2 & (~ad7177_dout_7_d1) & adc_initiate_complete & (spi_state_cnt == 16'd0))
     trigger_wait_cnt <= 'd32;
 else if (trigger_wait_cnt != 'd0)
     trigger_wait_cnt <= trigger_wait_cnt - 'd1;
@@ -520,7 +542,7 @@ end
 always @(posedge clk)
 if (~rst_n)
     adc_initiate_complete <= 1'b0;
-else if (ad7177_switch_dl_hd)
+else if (ad7177_switch_dl_hd_ex)
     adc_initiate_complete <= 1'b0;
 else if (initial_period_d & (~initial_period))
     adc_initiate_complete <= 1'b1;
@@ -569,7 +591,7 @@ adc_7177_result_process result_proc_11(.clk(clk), .rst_n(rst_n), .ad7177_switch_
 adc_7177_result_process result_proc_10(.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout(ad7177_dout_10_d2), .adc_result_ch0(adc_result_chip_5_ch0), .adc_result_ch1(adc_result_chip_5_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
 adc_7177_result_process result_proc_9 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_9_d2), .adc_result_ch0(adc_result_chip_4_ch2), .adc_result_ch1(adc_result_chip_4_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
 adc_7177_result_process result_proc_8 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_8_d2), .adc_result_ch0(adc_result_chip_4_ch0), .adc_result_ch1(adc_result_chip_4_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
-adc_7177_result_process result_proc_7 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_7_d2), .adc_result_ch0(adc_result_chip_3_ch2), .adc_result_ch1(adc_result_chip_3_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger(result_write_trigger));
+adc_7177_result_process result_proc_7 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_7_d2), .adc_result_ch0(adc_result_chip_3_ch2), .adc_result_ch1(adc_result_chip_3_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger(result_write_trigger_pre));
 adc_7177_result_process result_proc_6 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_6_d2), .adc_result_ch0(adc_result_chip_3_ch0), .adc_result_ch1(adc_result_chip_3_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
 adc_7177_result_process result_proc_5 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_5_d2), .adc_result_ch0(adc_result_chip_2_ch2), .adc_result_ch1(adc_result_chip_2_ch3), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
 adc_7177_result_process result_proc_4 (.clk(clk), .rst_n(rst_n), .ad7177_switch_dl_total(ad7177_switch_dl_total), .read_trigger(adc_data_read_trigger), .read_period(adc_result_read_period), .spi_state_cnt(spi_state_cnt), .ad7177_dout( ad7177_dout_4_d2), .adc_result_ch0(adc_result_chip_2_ch0), .adc_result_ch1(adc_result_chip_2_ch1), .adc_result_ch2(), .adc_result_ch3(), .result_write_trigger());
