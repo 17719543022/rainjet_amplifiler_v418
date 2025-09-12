@@ -418,6 +418,7 @@ usb_68013_ctrl usb_68013_ctrl (
 
     .adc_initiate_complete          (adc_initiate_complete  ),
     .adc_switch_dl_rsp_num          (adc_switch_dl_rsp_num  ),
+    .impedance_trigger_switch       (impedance_trigger_switch),
     .i2c_byte_out_en                (i2c_byte_out_en        ),
     .i2c_byte_out                   (i2c_byte_out           ),
     .batarry_protocol               ({batarry_protocol_stat, batarry_protocol_volt}),
@@ -431,7 +432,7 @@ usb_68013_ctrl usb_68013_ctrl (
     .usb_trigger_value_valid        (usb_trigger_value_valid),
     .usb_impedance_valid            (usb_impedance_valid    ),
     .adc_switch_dl_req_en           (adc_switch_dl_req_en   ),
-    .adc_switch_dl_req_num          (adc_switch_dl_req_num   ),
+    .adc_switch_dl_req_num          (adc_switch_dl_req_num  ),
     .real_max_value_1               (real_max_value_1       ),
     .real_max_value_2               (real_max_value_2       ),
     .real_max_value_3               (real_max_value_3       ),
@@ -662,6 +663,7 @@ adc_7177_ctrl adc_7177_ctrl (
 
     .adc_initiate_complete          (adc_initiate_complete  ),
     .adc_switch_dl_rsp_num          (adc_switch_dl_rsp_num  ),
+    .impedance_trigger_switch       (impedance_trigger_switch),
     .result_write_trigger           (result_write_trigger   ),
     .adc_wren                       (adc_wren               ),
     .adc_data                       (adc_data               ),

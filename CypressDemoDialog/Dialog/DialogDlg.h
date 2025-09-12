@@ -48,13 +48,9 @@ public:
 	afx_msg void OnBnClickedButtonTrigger();
 	afx_msg void OnBnClickedButtonUartTrig();
 	afx_msg void OnBnClickedButtonVersion();
-	afx_msg void OnBnClickedButtonTotalDlNum();
-	afx_msg void OnBnClickedButtonSampleFreq();
+	afx_msg void OnBnClickedCheck18DlNum();
 	afx_msg void OnBnClickedButtonSetSampleFreq();
-	afx_msg void OnBnClickedButtonAdFreq();
-	afx_msg void OnBnClickedButtonTrigLength();
-	afx_msg void OnBnClickedButtonMaxFreq();
-	afx_msg void OnBnClickedButtonImpedance();
+	afx_msg void OnBnClickedCheckImpedance();
 	afx_msg void OnBnClickedButtonSend();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 private:
@@ -77,15 +73,11 @@ private:
 	CCyUSBDevice* m_selectedUSBDevice;
 	CButton m_buttonVersion;
 	CButton m_buttonADCSample;
-	CButton m_buttonDlNum;
-	CButton m_buttonSampleFreq;
+	CButton m_buttonCheck18DlNum;
 	CButton m_buttonSetSampleFreq;
-	CButton m_buttonADFreq;
-	CButton m_buttonTrigLength;
-	CButton m_buttonMaxFreq;
 	CButton m_buttonUSBTrig;
 	CButton m_buttonUARTTrig;
-	CButton m_buttonImpedance;
+	CButton m_buttonCheckImpedance;
 	CString m_strEndPointEnumerate0x02;
 	CString m_strEndPointEnumerate0x04;
 	CString m_strEndPointEnumerate0x86;

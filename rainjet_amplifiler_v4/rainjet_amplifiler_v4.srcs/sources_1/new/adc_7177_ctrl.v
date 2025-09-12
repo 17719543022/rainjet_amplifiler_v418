@@ -44,6 +44,7 @@ module adc_7177_ctrl(
 
     output reg              adc_initiate_complete,
     output reg [ 7:0]       adc_switch_dl_rsp_num,
+    output reg              impedance_trigger_switch,
     output                  result_write_trigger,
     output reg              adc_wren,
     output reg [31:0]       adc_data,
@@ -853,7 +854,6 @@ The SCK is divided by 16 of clk, that is 3M, each ADC value(28 bit length) needs
 ************************************************************************************************/
 
 reg                 impedance_trigger_switch_pre;
-reg                 impedance_trigger_switch;
 
 reg                 jl_master_cs_out;
 reg                 jl_master_sck_out;

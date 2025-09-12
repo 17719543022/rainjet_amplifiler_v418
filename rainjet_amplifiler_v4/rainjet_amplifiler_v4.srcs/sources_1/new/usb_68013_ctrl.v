@@ -26,6 +26,7 @@ module usb_68013_ctrl (
 
     input                   adc_initiate_complete,
     input [ 7:0]            adc_switch_dl_rsp_num,
+    input                   impedance_trigger_switch,
     input                   i2c_byte_out_en,
     input [ 7:0]            i2c_byte_out,
     input [31:0]            batarry_protocol,
@@ -494,8 +495,8 @@ begin
     10'd495: USB_DATA_OUT_CMD <= {batarry_protocol[7:0], batarry_protocol[15:8]}; // batarry_protocol_volt
     10'd494: USB_DATA_OUT_CMD <= {16'h0000}; // MaxFreq
     10'd493: USB_DATA_OUT_CMD <= {16'h1027};
-    10'd492: USB_DATA_OUT_CMD <= {16'hAA55};
-    10'd491: USB_DATA_OUT_CMD <= {16'h00ff};
+    10'd492: USB_DATA_OUT_CMD <= {16'h0000};
+    10'd491: USB_DATA_OUT_CMD <= {7'h0, impedance_trigger_switch, 8'h0};
     10'd490: USB_DATA_OUT_CMD <= {real_max_value_1[23:16],  real_max_value_1[31:24] };
     10'd489: USB_DATA_OUT_CMD <= {real_max_value_1[ 7: 0],  real_max_value_1[15: 8] };
     10'd488: USB_DATA_OUT_CMD <= {real_max_value_2[23:16],  real_max_value_2[31:24] };

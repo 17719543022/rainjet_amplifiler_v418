@@ -60,7 +60,6 @@ END_MESSAGE_MAP()
 #define IDTIMER1 1
 #define IDTIMER2 2
 
-UCHAR g_totalDlNum = TOTAL_DL_NUM_36;
 unsigned short g_xBuff[DATA_SHOW_LENGTH] = { 0 };
 long g_yBuff[DATA_SHOW_LENGTH] = { 0 };
 double XValues[DATA_SHOW_LENGTH] = { 0 };
@@ -257,22 +256,18 @@ void CDialogDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_VERSION, m_buttonVersion);
 	DDX_Control(pDX, IDC_BUTTON_ADC_SAMPLE, m_buttonADCSample);
 	DDX_Control(pDX, IDC_CUSTOM_SHOW, m_ChartCtrl);
-	DDX_Control(pDX, IDC_BUTTON_DL_NUM, m_buttonDlNum);
-	DDX_Control(pDX, IDC_BUTTON_SAMPLE_FREQ, m_buttonSampleFreq);
 	DDX_Control(pDX, IDC_BUTTON_SET_SAMPLE_FREQ, m_buttonSetSampleFreq);
 	DDX_Control(pDX, IDC_EDIT_QUERY_RESULT, m_edtQueryResult);
 	DDX_Control(pDX, IDC_EDIT_SAMPLE_FREQ, m_edtSampleFreq);
-	DDX_Control(pDX, IDC_BUTTON_TRIG_LENGTH, m_buttonTrigLength);
-	DDX_Control(pDX, IDC_BUTTON_AD_FREQ, m_buttonADFreq);
-	DDX_Control(pDX, IDC_BUTTON_MAX_FREQ, m_buttonMaxFreq);
 	DDX_Control(pDX, IDC_BUTTON_TRIGGER, m_buttonUSBTrig);
 	DDX_Control(pDX, IDC_EDIT_TRIG_VALUE, m_edtTriggerValue);
 	DDX_Control(pDX, IDC_EDIT_UART_TRIG, m_edtUartTrigValue);
-	DDX_Control(pDX, IDC_BUTTON_IMPEDANCE, m_buttonImpedance);
 	DDX_Control(pDX, IDC_EDIT_IMPEDANCE, m_edtImpedance);
 	DDX_Control(pDX, IDC_COMBO_PORT_Nr, m_PortNr);
 	DDX_Control(pDX, IDC_SendEdit, m_Send);
 	DDX_Control(pDX, IDC_BUTTON_UART_TRIG, m_buttonUARTTrig);
+	DDX_Control(pDX, IDC_CHECK_18_DL_NUM, m_buttonCheck18DlNum);
+	DDX_Control(pDX, IDC_CHECK_IMPEDANCE, m_buttonCheckImpedance);
 }
 
 BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
@@ -283,16 +278,12 @@ BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_VERSION, &CDialogDlg::OnBnClickedButtonVersion)
 	ON_BN_CLICKED(IDC_BUTTON_ADC_SAMPLE, &CDialogDlg::OnBnClickedButtonAdcSample)
 	ON_WM_TIMER()
-	ON_BN_CLICKED(IDC_BUTTON_TOTAL_DL_NUM, &CDialogDlg::OnBnClickedButtonTotalDlNum)
-	ON_BN_CLICKED(IDC_BUTTON_SAMPLE_FREQ, &CDialogDlg::OnBnClickedButtonSampleFreq)
 	ON_BN_CLICKED(IDC_BUTTON_SET_SAMPLE_FREQ, &CDialogDlg::OnBnClickedButtonSetSampleFreq)
-	ON_BN_CLICKED(IDC_BUTTON_TRIG_LENGTH, &CDialogDlg::OnBnClickedButtonTrigLength)
-	ON_BN_CLICKED(IDC_BUTTON_AD_FREQ, &CDialogDlg::OnBnClickedButtonAdFreq)
-	ON_BN_CLICKED(IDC_BUTTON_MAX_FREQ, &CDialogDlg::OnBnClickedButtonMaxFreq)
 	ON_BN_CLICKED(IDC_BUTTON_TRIGGER, &CDialogDlg::OnBnClickedButtonTrigger)
-	ON_BN_CLICKED(IDC_BUTTON_IMPEDANCE, &CDialogDlg::OnBnClickedButtonImpedance)
 	ON_BN_CLICKED(IDC_BUTTON_SEND, &CDialogDlg::OnBnClickedButtonSend)
 	ON_BN_CLICKED(IDC_BUTTON_UART_TRIG, &CDialogDlg::OnBnClickedButtonUartTrig)
+	ON_BN_CLICKED(IDC_CHECK_18_DL_NUM, &CDialogDlg::OnBnClickedCheck18DlNum)
+	ON_BN_CLICKED(IDC_CHECK_IMPEDANCE, &CDialogDlg::OnBnClickedCheckImpedance)
 END_MESSAGE_MAP()
 
 // CDialogDlg 消息处理程序
@@ -346,13 +337,10 @@ BOOL CDialogDlg::OnInitDialog()
 	this->m_buttonUSBTrig.EnableWindow(FALSE);
 	this->m_buttonUARTTrig.EnableWindow(FALSE);
 	this->m_buttonVersion.EnableWindow(FALSE);
-	this->m_buttonDlNum.EnableWindow(FALSE);
-	this->m_buttonSampleFreq.EnableWindow(FALSE);
+	this->m_buttonCheck18DlNum.EnableWindow(FALSE);
 	this->m_buttonSetSampleFreq.EnableWindow(FALSE);
-	this->m_buttonADFreq.EnableWindow(FALSE);
-	this->m_buttonTrigLength.EnableWindow(FALSE);
-	this->m_buttonMaxFreq.EnableWindow(FALSE);
-	this->m_buttonImpedance.EnableWindow(FALSE);
+	this->m_buttonCheckImpedance.EnableWindow(FALSE);
+
 	SurveyExistingDevices();
 	EnumerateEndpointForTheSelectedDevice();
 
@@ -499,13 +487,9 @@ bool CDialogDlg::EnumerateEndpointForTheSelectedDevice()
 		this->m_buttonUSBTrig.EnableWindow(FALSE);
 		this->m_buttonUARTTrig.EnableWindow(FALSE);
 		this->m_buttonVersion.EnableWindow(FALSE);
-		this->m_buttonDlNum.EnableWindow(FALSE);
-		this->m_buttonSampleFreq.EnableWindow(FALSE);
+		this->m_buttonCheck18DlNum.EnableWindow(FALSE);
 		this->m_buttonSetSampleFreq.EnableWindow(FALSE);
-		this->m_buttonADFreq.EnableWindow(FALSE);
-		this->m_buttonTrigLength.EnableWindow(FALSE);
-		this->m_buttonMaxFreq.EnableWindow(FALSE);
-		this->m_buttonImpedance.EnableWindow(FALSE);
+		this->m_buttonCheckImpedance.EnableWindow(FALSE);
 
 		m_buttonADCSample.SetWindowText("正式启动");
 
@@ -561,13 +545,9 @@ bool CDialogDlg::EnumerateEndpointForTheSelectedDevice()
 	this->m_buttonUSBTrig.EnableWindow(FALSE);
 	this->m_buttonUARTTrig.EnableWindow(FALSE);
 	this->m_buttonVersion.EnableWindow(TRUE);
-	this->m_buttonDlNum.EnableWindow(TRUE);
-	this->m_buttonSampleFreq.EnableWindow(TRUE);
+	this->m_buttonCheck18DlNum.EnableWindow(TRUE);
 	this->m_buttonSetSampleFreq.EnableWindow(TRUE);
-	this->m_buttonADFreq.EnableWindow(TRUE);
-	this->m_buttonTrigLength.EnableWindow(TRUE);
-	this->m_buttonMaxFreq.EnableWindow(TRUE);
-	this->m_buttonImpedance.EnableWindow(TRUE);
+	this->m_buttonCheckImpedance.EnableWindow(TRUE);
 
 	return TRUE;
 }
@@ -987,7 +967,7 @@ void CDialogDlg::OnBnClickedButtonAdcSample()
 	}
 	g_daoLianIndex = 16 + 4 * (m_uDlNum - 1);
 
-	if (m_bButtonImpedanceClicked)
+	if (m_buttonCheckImpedance.GetCheck())
 	{
 		AfxMessageBox(_T("请先关闭阻抗检测！！！"));
 		return;
@@ -1680,13 +1660,17 @@ void CDialogDlg::DoUpdateADCInitiateStatus()
 		if ((candidateADCInitiateStatus == 1) && ((candidateTotalDlNum == TOTAL_DL_NUM_18) || (candidateTotalDlNum == TOTAL_DL_NUM_36)))
 		{
 			m_bADCInitiateComplete = TRUE;
-
-			g_totalDlNum = candidateTotalDlNum;
-			CString strButtonDlNum("");
-			strButtonDlNum.Format("导联数（%d）", g_totalDlNum);
-			m_buttonDlNum.SetWindowText(strButtonDlNum);
-			m_buttonDlNum.EnableWindow(TRUE);
+			m_buttonCheck18DlNum.EnableWindow(TRUE);
+			m_buttonCheck18DlNum.SetCheck(candidateTotalDlNum == TOTAL_DL_NUM_18);
 		}
+
+		int impedanceTriggerSwitch = 0;
+		impedanceTriggerSwitch += buffersInput[0][44] << 24;
+		impedanceTriggerSwitch += buffersInput[0][45] << 16;
+		impedanceTriggerSwitch += buffersInput[0][46] << 8;
+		impedanceTriggerSwitch += buffersInput[0][47];
+
+		m_buttonCheckImpedance.SetCheck(impedanceTriggerSwitch);
 
 		// Re-submit this queue element to keep the queue full
 		contextsInput[nINCount] = epBulkIn->BeginDataXfer(buffersInput[nINCount], totalTransferSize, &inOvLap[nINCount]);
@@ -1727,11 +1711,11 @@ void CDialogDlg::DoUpdateADCInitiateStatus()
 	return;
 }
 
-void CDialogDlg::OnBnClickedButtonTotalDlNum()
+void CDialogDlg::OnBnClickedCheck18DlNum()
 {
-	m_buttonDlNum.EnableWindow(FALSE);
+	m_buttonCheck18DlNum.EnableWindow(FALSE);
 	m_bADCInitiateComplete = FALSE;
-	UCHAR candidateTotalDlNum = (g_totalDlNum == TOTAL_DL_NUM_36) ? TOTAL_DL_NUM_18 : TOTAL_DL_NUM_36;
+	UCHAR candidateTotalDlNum = (m_buttonCheck18DlNum.GetCheck()) ? TOTAL_DL_NUM_18 : TOTAL_DL_NUM_36;
 
 	CString strOutData = m_strEndPointEnumerate0x02;
 	TCHAR* pEnd;
@@ -1788,11 +1772,6 @@ void CDialogDlg::OnBnClickedButtonTotalDlNum()
 	}
 }
 
-void CDialogDlg::OnBnClickedButtonSampleFreq()
-{
-	DoQuery(23);
-}
-
 void CDialogDlg::OnBnClickedButtonSetSampleFreq()
 {
 	UINT sampleFreq = 0x9C40;
@@ -1800,21 +1779,6 @@ void CDialogDlg::OnBnClickedButtonSetSampleFreq()
 	GetDlgItem(IDC_EDIT_SAMPLE_FREQ)->GetWindowText(ch1, 10);
 	sampleFreq = atoi(ch1);
 	ConfigADCSamplingRate(sampleFreq);
-}
-
-void CDialogDlg::OnBnClickedButtonTrigLength()
-{
-	DoQuery(31);
-}
-
-void CDialogDlg::OnBnClickedButtonAdFreq()
-{
-	DoQuery(27);
-}
-
-void CDialogDlg::OnBnClickedButtonMaxFreq()
-{
-	DoQuery(39);
 }
 
 void CDialogDlg::OnBnClickedButtonTrigger()
@@ -1912,37 +1876,24 @@ void CDialogDlg::OnBnClickedButtonUartTrig()
 	m_edtQueryResult.SetWindowText(strBytes);
 }
 
-void CDialogDlg::OnBnClickedButtonImpedance()
+void CDialogDlg::OnBnClickedCheckImpedance()
 {
-	char ch1[10];
-	GetDlgItem(IDC_EDIT_IMPEDANCE)->GetWindowText(ch1, 10);
-	m_uDlNum = atoi(ch1);
-	if ((m_uDlNum < 1) || (m_uDlNum > 144))
-	{
-		AfxMessageBox(_T("请确认输入了正确的导联号！！！"));
-		return;
-	}
-	g_daoLianIndex = 16 + 4 * (m_uDlNum - 1);
-
 	if (m_bButtonADCSampleClicked)
 	{
+		m_buttonCheckImpedance.SetCheck(FALSE);
 		AfxMessageBox(_T("请先关闭导联信号采集！！！"));
 		return;
 	}
 
-	if (m_bButtonImpedanceClicked)
+	if (m_buttonCheckImpedance.GetCheck())
 	{
-		m_buttonImpedance.SetWindowText("阻抗检测");
-		SendImpedanceInstruction(0);
-		KillTimer(IDTIMER2);
-		m_bButtonImpedanceClicked = FALSE;
+		SendImpedanceInstruction(1);
+		SetTimer(IDTIMER2, 1000, NULL);
 	}
 	else
 	{
-		m_buttonImpedance.SetWindowText("停止");
-		SendImpedanceInstruction(m_uDlNum);
-		SetTimer(IDTIMER2, 1000, NULL);
-		m_bButtonImpedanceClicked = TRUE;
+		SendImpedanceInstruction(0);
+		KillTimer(IDTIMER2);
 	}
 }
 
@@ -2044,6 +1995,10 @@ bool CDialogDlg::SurveyExistingComm()
 
 	return true;
 }
+
+
+
+
 
 
 
