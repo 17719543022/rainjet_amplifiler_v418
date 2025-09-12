@@ -175,7 +175,7 @@ namespace {
 	{
 		g_atParameterLength = 12;
 		memset(g_atParameter, 0, sizeof(g_atParameter));
-		sprintf((char*)g_atParameter, "%08d%04d", atoi(write.Mid(2, 8)), atoi(write.Mid(10, 4)));
+		sprintf((char*)g_atParameter, "%08d%04d", atoi(write.Mid(0, 8)), atoi(write.Mid(8, 4)));
 	}
 
 	void BuildAtParameterUartTrig(UCHAR value)
@@ -264,10 +264,11 @@ void CDialogDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_EDIT_UART_TRIG, m_edtUartTrigValue);
 	DDX_Control(pDX, IDC_EDIT_IMPEDANCE, m_edtImpedance);
 	DDX_Control(pDX, IDC_COMBO_PORT_Nr, m_PortNr);
-	DDX_Control(pDX, IDC_SendEdit, m_Send);
+	DDX_Control(pDX, IDC_EDIT_PRODUCT_ID, m_edtProductId);
 	DDX_Control(pDX, IDC_BUTTON_UART_TRIG, m_buttonUARTTrig);
 	DDX_Control(pDX, IDC_CHECK_18_DL_NUM, m_buttonCheck18DlNum);
 	DDX_Control(pDX, IDC_CHECK_IMPEDANCE, m_buttonCheckImpedance);
+	DDX_Control(pDX, IDC_EDIT_ANALYSIS, m_edtAnalysis);
 }
 
 BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
@@ -275,7 +276,7 @@ BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
 	ON_CBN_SELCHANGE(IDC_COMBO_DEVICES, &CDialogDlg::OnCbnSelchangeComboDevices)
-	ON_BN_CLICKED(IDC_BUTTON_VERSION, &CDialogDlg::OnBnClickedButtonVersion)
+	ON_BN_CLICKED(IDC_BUTTON_VERSION, &CDialogDlg::OnBnClickedButtonStatus)
 	ON_BN_CLICKED(IDC_BUTTON_ADC_SAMPLE, &CDialogDlg::OnBnClickedButtonAdcSample)
 	ON_WM_TIMER()
 	ON_BN_CLICKED(IDC_BUTTON_SET_SAMPLE_FREQ, &CDialogDlg::OnBnClickedButtonSetSampleFreq)
@@ -552,9 +553,9 @@ bool CDialogDlg::EnumerateEndpointForTheSelectedDevice()
 	return TRUE;
 }
 
-void CDialogDlg::OnBnClickedButtonVersion()
+void CDialogDlg::OnBnClickedButtonStatus()
 {
-	DoQuery(15);
+	DoQuery();
 }
 
 void CDialogDlg::ConfigADCSamplingRate(UINT samplingRate)
@@ -1150,7 +1151,7 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		{
 			CString strFrameNumberError;
 			strFrameNumberError.Format("g_frameNumber not continuous: %d - %d!!", g_frameNumber, frameNumber);
-			pThis->m_edtQueryResult.SetWindowText(strFrameNumberError);
+			pThis->m_edtAnalysis.SetWindowText(strFrameNumberError);
 		}
 
 		g_frameNumber = frameNumber;
@@ -1278,7 +1279,7 @@ void CDialogDlg::OnTimer(UINT_PTR nIDEvent)
 	}
 	case IDTIMER2:
 	{
-		DoQuery(47 + (m_uDlNum - 1) * 4);
+		DoQuery();
 
 		break;
 	}
@@ -1307,7 +1308,7 @@ void CDialogDlg::ChartCtrlInit()
 
 }
 
-void CDialogDlg::DoQuery(UINT pos)
+void CDialogDlg::DoQuery()
 {
 	CString strINData = m_strEndPointEnumerate0x88;
 	CString strOutData = m_strEndPointEnumerate0x02;
@@ -1434,14 +1435,7 @@ void CDialogDlg::DoQuery(UINT pos)
 			{
 				strTemp.Format("%04X", nCount);
 				strBytes += strTemp;
-				if ((nCount - 1) == pos)
-				{
-					strBytes += "   \"";
-				}
-				else
-				{
-					strBytes += "    ";
-				}
+				strBytes += "    ";
 			}
 
 			strTemp.Format("%02X", buffersInput[0][nCount]);
@@ -1449,42 +1443,66 @@ void CDialogDlg::DoQuery(UINT pos)
 
 			if ((nCount + 1) % 16 == 0)
 			{
-				if (nCount == pos + 4)
-				{
-					strBytes += "\"\r\n";
-				}
-				else
-				{
-					strBytes += "\r\n";
-				}
+				strBytes += "\r\n";
 			}
 			else
 			{
-				if (nCount == pos)
-				{
-					strBytes += " \"";
-				}
-				else if (nCount == pos + 4)
-				{
-					strBytes += "\" ";
-				}
-				else
-				{
-					strBytes += "  ";
-				}
+				strBytes += "  ";
 			}
 		}
 		m_edtQueryResult.SetWindowText(strBytes);
 
-		//////////BytesXFerred is need for current data rate calculation.
-		///////// Refer to CalculateTransferSpeed function for the exact
-		///////// calculation.............................
-		//if (BytesXferred < 0) // Rollover - reset counters
-		//{
-		//    BytesXferred = 0;
-		//    GetSystemTime(&objStartTime);
-		//}
+		int impedanceTriggerSwitch = 0;
+		impedanceTriggerSwitch += buffersInput[0][44] << 24;
+		impedanceTriggerSwitch += buffersInput[0][45] << 16;
+		impedanceTriggerSwitch += buffersInput[0][46] << 8;
+		impedanceTriggerSwitch += buffersInput[0][47];
 
+		CString strAnalysis("");
+		if (impedanceTriggerSwitch)
+		{
+			strAnalysis = _T("");
+		}
+		else
+		{
+			strAnalysis = _T("");
+			strTemp.Format("buffers[04-07]  -  \"%02X  %02X  %02X  %02X\"\t-  ADC Initiated Success or Not.", buffersInput[0][4], buffersInput[0][5], buffersInput[0][6], buffersInput[0][7]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[08-11]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Product Date.", buffersInput[0][8], buffersInput[0][9], buffersInput[0][10], buffersInput[0][11]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[12-15]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Serial Number.", buffersInput[0][12], buffersInput[0][13], buffersInput[0][14], buffersInput[0][15]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[16-19]  -  \"%02X  %02X  %02X  %02X\"\t-  FPGA Version.", buffersInput[0][16], buffersInput[0][17], buffersInput[0][18], buffersInput[0][19]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[20-23]  -  \"%02X  %02X  %02X  %02X\"\t-  18 DL Mode or Not, 0x12 = 18, 0x24 = 36.", buffersInput[0][20], buffersInput[0][21], buffersInput[0][22], buffersInput[0][23]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			int samplePeriod = 0;
+			samplePeriod += buffersInput[0][24] << 24;
+			samplePeriod += buffersInput[0][25] << 16;
+			samplePeriod += buffersInput[0][26] << 8;
+			samplePeriod += buffersInput[0][27];
+			int sampleFrequency = 48000000 / samplePeriod;
+			strTemp.Format("buffers[24-27]  -  \"%02X  %02X  %02X  %02X\"\t-  Sample Frequency, 48MHz/0x%X = %d(Hz).", buffersInput[0][24], buffersInput[0][25], buffersInput[0][26], buffersInput[0][27], samplePeriod, sampleFrequency);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[36-36]  -  \"%02X\"\t\t-  Battery Status, 0x00 = Normal, 0x01 = Charge Complete,\r\t\t\t\t\t\t   0x02 = Charging, 0x03 = Low Battery.", buffersInput[0][36]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[37-37]  -  \"%02X\"\t\t-  Battery Level, 0x00 = 1 Grid, 0x01 = 2 Grid, 0x02 = 3 Grid,\r\t\t\t\t\t   0x03 = 4 Grid, 0x04 = 5 Grid.", buffersInput[0][37]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[38-39]  -  \"%02X  %02X\"\t\t-  ADC Value Of Battery Level, 0x%02X%02X.", buffersInput[0][38], buffersInput[0][39], buffersInput[0][38], buffersInput[0][39]);
+			strAnalysis += strTemp;
+			strAnalysis += "\r\n";
+			strTemp.Format("buffers[40-43]  -  \"%02X  %02X  %02X  %02X\"\t-  Impedance Mode or Not.", buffersInput[0][40], buffersInput[0][41], buffersInput[0][42], buffersInput[0][43]);
+			strAnalysis += strTemp;
+			m_edtAnalysis.SetWindowTextA(strAnalysis);
+		}
 
 		// Re-submit this queue element to keep the queue full
 		contextsInput[nINCount] = epBulkIn->BeginDataXfer(buffersInput[nINCount], totalTransferSize, &inOvLap[nINCount]);
@@ -1899,7 +1917,7 @@ void CDialogDlg::OnBnClickedCheckImpedance()
 
 void CDialogDlg::OnBnClickedButtonSend()
 {
-	GetDlgItem(IDC_SendEdit)->SetFocus();
+	GetDlgItem(IDC_EDIT_PRODUCT_ID)->SetFocus();
 
 	char portName[256] = { 0 };
 	int SelParity;
@@ -1923,28 +1941,18 @@ void CDialogDlg::OnBnClickedButtonSend()
 	}
 
 	CString strInstruction;
-	m_Send.GetWindowTextA(strInstruction);
+	m_edtProductId.GetWindowTextA(strInstruction);
 
-	if (strcmp(strInstruction.Mid(0, 1), _T("@")) != 0)
+	if ((strInstruction.GetLength() != 12) || (strInstruction.SpanIncluding("0123456789") != strInstruction))
 	{
+		AfxMessageBox(_T("请输入正确的8位生产日期加4位序列号，如：202411220001"));
 		return;
 	}
 
-	if (strcmp(strInstruction.Mid(1, 1), _T("W")) == 0)
-	{
-		BuildAtParameterUartWrite(strInstruction);
-		BuildAtInstruction('W');
+	BuildAtParameterUartWrite(strInstruction);
+	BuildAtInstruction('W');
 
-		m_SerialPort.writeData(g_atInstruction, g_atInstructionLength);
-	}
-	
-	if (strcmp(strInstruction.Mid(1, 1), _T("R")) == 0)
-	{
-		BuildAtParameterUartRead();
-		BuildAtInstruction('R');
-
-		m_SerialPort.writeData(g_atInstruction, g_atInstructionLength);
-	}
+	m_SerialPort.writeData(g_atInstruction, g_atInstructionLength);
 }
 
 void CDialogDlg::onReadEvent(const char* portName, unsigned int readBufferLen)
@@ -1961,8 +1969,8 @@ void CDialogDlg::onReadEvent(const char* portName, unsigned int readBufferLen)
 			{
 				data[recLen] = '\0';
 
-				CString str1(data);
-				m_edtQueryResult.SetWindowTextA(str1);
+				CString strBytes(data);
+				m_edtQueryResult.SetWindowTextA(strBytes);
 			}
 
 			delete[] data;

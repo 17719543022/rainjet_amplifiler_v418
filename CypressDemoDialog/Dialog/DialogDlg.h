@@ -47,7 +47,7 @@ public:
 	afx_msg void OnBnClickedButtonAdcSample();
 	afx_msg void OnBnClickedButtonTrigger();
 	afx_msg void OnBnClickedButtonUartTrig();
-	afx_msg void OnBnClickedButtonVersion();
+	afx_msg void OnBnClickedButtonStatus();
 	afx_msg void OnBnClickedCheck18DlNum();
 	afx_msg void OnBnClickedButtonSetSampleFreq();
 	afx_msg void OnBnClickedCheckImpedance();
@@ -67,7 +67,7 @@ private:
 	DWORD ClearUSBFIFO();
 	void DataBuffInit();
 	void ChartCtrlInit();
-	void DoQuery(UINT pos);
+	void DoQuery();
 	void DoUpdateADCInitiateStatus();
 	CComboBox m_comboDevices;
 	CCyUSBDevice* m_selectedUSBDevice;
@@ -83,10 +83,12 @@ private:
 	CString m_strEndPointEnumerate0x86;
 	CString m_strEndPointEnumerate0x88;
 	CEdit m_edtQueryResult;
+	CEdit m_edtAnalysis;
 	CEdit m_edtSampleFreq;
 	CEdit m_edtTriggerValue;
 	CEdit m_edtUartTrigValue;
 	CEdit m_edtImpedance;
+	CEdit m_edtProductId;
 	CWinThread* m_pThread;
 	bool m_bButtonADCSampleClicked;
 	bool m_bButtonImpedanceClicked;
@@ -98,5 +100,4 @@ private:
 	UINT m_AxisMax;
 	CComboBox m_PortNr;
 	CSerialPort m_SerialPort;
-	CEdit m_Send;
 };
