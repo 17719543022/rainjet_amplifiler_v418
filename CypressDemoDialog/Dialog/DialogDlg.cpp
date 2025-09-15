@@ -223,6 +223,34 @@ namespace {
 		g_atInstruction[2 + (g_atParameterLength + 1 + 2) * 2 + 1] = 0x30;		// add 0 to even number
 		g_atInstructionLength = 2 + (g_atParameterLength + 1 + 2) * 2 + 2;
 	}
+
+	void ImpedanceRow(UCHAR uDlNum, PUCHAR* buffersInput, CString & strTemp)
+	{
+		UCHAR buffersStart = 48 + (uDlNum - 1) * 4;
+		UCHAR buffersEnd = 48 + uDlNum * 4 - 1;
+		UINT impedanceCode = 0;
+		impedanceCode += buffersInput[0][buffersStart] << 24;
+		impedanceCode += buffersInput[0][buffersStart + 1] << 16;
+		impedanceCode += buffersInput[0][buffersStart + 2] << 8;
+		impedanceCode += buffersInput[0][buffersStart + 3];
+		impedanceCode = impedanceCode >> 4;
+		impedanceCode = impedanceCode - 0x8000000;
+		impedanceCode = (impedanceCode < 0) ? 0 : impedanceCode;
+
+		double impedance = 0.0f;
+		if (uDlNum <= 32)
+		{
+			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 4.7;
+		}
+		else
+		{
+			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 2.35;
+		}
+		strTemp.Format("buffers[%03d-%03d]  -  \"%02X  %02X  %02X  %02X\"  -  %02d/36, %.1fkΩ." \
+			, buffersStart, buffersEnd
+			, buffersInput[0][buffersStart], buffersInput[0][buffersStart + 1], buffersInput[0][buffersStart + 2], buffersInput[0][buffersStart + 3]
+			, uDlNum, impedance);
+	}
 }
 
 CDialogDlg::CDialogDlg(CWnd* pParent /*=nullptr*/)
@@ -1247,7 +1275,7 @@ void CDialogDlg::OnTimer(UINT_PTR nIDEvent)
 		pLineSeries->SetColor(255); //red
 		for (int i = 0; i < DATA_SHOW_LENGTH; i++)
 		{
-			YValues[i] = (((g_yBuff[i] * 2500.0) / pow(2, 27)) / 3.889);
+			YValues[i] = (((g_yBuff[i] * 2500.0) / pow(2, 27)) / 3.57);
 		}
 		pLineSeries->SetPoints(XValues, YValues, DATA_SHOW_LENGTH);
 
@@ -1462,23 +1490,41 @@ void CDialogDlg::DoQuery()
 		if (impedanceTriggerSwitch)
 		{
 			strAnalysis = _T("");
+			for (UINT t = 1; t <= TOTAL_DL_NUM_36; t++)
+			{
+				ImpedanceRow(t, buffersInput, strTemp);
+				strAnalysis += strTemp;
+				strAnalysis += "\r\n";
+			}
+
+			m_edtAnalysis.SetWindowTextA(strAnalysis);
 		}
 		else
 		{
 			strAnalysis = _T("");
-			strTemp.Format("buffers[04-07]  -  \"%02X  %02X  %02X  %02X\"\t-  ADC Initiated Success or Not.", buffersInput[0][4], buffersInput[0][5], buffersInput[0][6], buffersInput[0][7]);
+			strTemp.Format("buffers[04-07]  -  \"%02X  %02X  %02X  %02X\"\t-  ADC Initiated Success or Not." \
+				, buffersInput[0][4], buffersInput[0][5], buffersInput[0][6], buffersInput[0][7]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[08-11]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Product Date.", buffersInput[0][8], buffersInput[0][9], buffersInput[0][10], buffersInput[0][11]);
+			strTemp.Format("buffers[08-11]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Product Date." \
+				, buffersInput[0][8], buffersInput[0][9], buffersInput[0][10], buffersInput[0][11]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[12-15]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Serial Number.", buffersInput[0][12], buffersInput[0][13], buffersInput[0][14], buffersInput[0][15]);
+			strTemp.Format("buffers[12-15]  -  \"%02X  %02X  %02X  %02X\"\t-  Amplifiler Serial Number." \
+				, buffersInput[0][12], buffersInput[0][13], buffersInput[0][14], buffersInput[0][15]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[16-19]  -  \"%02X  %02X  %02X  %02X\"\t-  FPGA Version.", buffersInput[0][16], buffersInput[0][17], buffersInput[0][18], buffersInput[0][19]);
+			strTemp.Format("buffers[16-19]  -  \"%02X  %02X  %02X  %02X\"\t-  FPGA Version." \
+				, buffersInput[0][16], buffersInput[0][17], buffersInput[0][18], buffersInput[0][19]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[20-23]  -  \"%02X  %02X  %02X  %02X\"\t-  18 DL Mode or Not, 0x12 = 18, 0x24 = 36.", buffersInput[0][20], buffersInput[0][21], buffersInput[0][22], buffersInput[0][23]);
+			int totalDlNum = 0;
+			totalDlNum += buffersInput[0][20] << 24;
+			totalDlNum += buffersInput[0][21] << 16;
+			totalDlNum += buffersInput[0][22] << 8;
+			totalDlNum += buffersInput[0][23];
+			strTemp.Format("buffers[20-23]  -  \"%02X  %02X  %02X  %02X\"\t-  18 DL Mode or 36 DL Mode, 0x12 = 18, 0x24 = 36." \
+				, buffersInput[0][20], buffersInput[0][21], buffersInput[0][22], buffersInput[0][23]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
 			int samplePeriod = 0;
@@ -1487,19 +1533,32 @@ void CDialogDlg::DoQuery()
 			samplePeriod += buffersInput[0][26] << 8;
 			samplePeriod += buffersInput[0][27];
 			int sampleFrequency = 48000000 / samplePeriod;
-			strTemp.Format("buffers[24-27]  -  \"%02X  %02X  %02X  %02X\"\t-  Sample Frequency, 48MHz/0x%X = %d(Hz).", buffersInput[0][24], buffersInput[0][25], buffersInput[0][26], buffersInput[0][27], samplePeriod, sampleFrequency);
+			if (totalDlNum == TOTAL_DL_NUM_18)
+			{
+				strTemp.Format("buffers[24-27]  -  \"%02X  %02X  %02X  %02X\"\t-  Sample Frequency, (48MHz/0x%X)*2 = %d(Hz)." \
+					, buffersInput[0][24], buffersInput[0][25], buffersInput[0][26], buffersInput[0][27], samplePeriod, sampleFrequency * 2);
+			}
+			else
+			{
+				strTemp.Format("buffers[24-27]  -  \"%02X  %02X  %02X  %02X\"\t-  Sample Frequency, 48MHz/0x%X = %d(Hz)." \
+					, buffersInput[0][24], buffersInput[0][25], buffersInput[0][26], buffersInput[0][27], samplePeriod, sampleFrequency);
+			}
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[36-36]  -  \"%02X\"\t\t-  Battery Status, 0x00 = Normal, 0x01 = Charge Complete,\r\t\t\t\t\t\t   0x02 = Charging, 0x03 = Low Battery.", buffersInput[0][36]);
+			strTemp.Format("buffers[36-36]  -  \"%02X\"\t\t-  Battery Status, 0x00 = Normal, 0x01 = Charge Complete,\r\t\t\t\t\t\t   0x02 = Charging, 0x03 = Low Battery." \
+				, buffersInput[0][36]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[37-37]  -  \"%02X\"\t\t-  Battery Level, 0x00 = 1 Grid, 0x01 = 2 Grid, 0x02 = 3 Grid,\r\t\t\t\t\t   0x03 = 4 Grid, 0x04 = 5 Grid.", buffersInput[0][37]);
+			strTemp.Format("buffers[37-37]  -  \"%02X\"\t\t-  Battery Level, 0x00 = 1 Grid, 0x01 = 2 Grid, 0x02 = 3 Grid,\r\t\t\t\t\t   0x03 = 4 Grid, 0x04 = 5 Grid." \
+				, buffersInput[0][37]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[38-39]  -  \"%02X  %02X\"\t\t-  ADC Value Of Battery Level, 0x%02X%02X.", buffersInput[0][38], buffersInput[0][39], buffersInput[0][38], buffersInput[0][39]);
+			strTemp.Format("buffers[38-39]  -  \"%02X  %02X\"\t\t-  ADC Value Of Battery Level, 0x%02X%02X." \
+				, buffersInput[0][38], buffersInput[0][39], buffersInput[0][38], buffersInput[0][39]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[40-43]  -  \"%02X  %02X  %02X  %02X\"\t-  Impedance Mode or Not.", buffersInput[0][40], buffersInput[0][41], buffersInput[0][42], buffersInput[0][43]);
+			strTemp.Format("buffers[40-43]  -  \"%02X  %02X  %02X  %02X\"\t-  Impedance Mode or Not." \
+				, buffersInput[0][40], buffersInput[0][41], buffersInput[0][42], buffersInput[0][43]);
 			strAnalysis += strTemp;
 			m_edtAnalysis.SetWindowTextA(strAnalysis);
 		}
