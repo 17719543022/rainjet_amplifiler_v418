@@ -240,11 +240,11 @@ namespace {
 		double impedance = 0.0f;
 		if (uDlNum <= 32)
 		{
-			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 4.7;
+			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 4.3;
 		}
 		else
 		{
-			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 2.35;
+			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 2.15;
 		}
 		strTemp.Format("buffers[%03d-%03d]  -  \"%02X  %02X  %02X  %02X\"  -  %02d/36, %.1fkΩ." \
 			, buffersStart, buffersEnd
