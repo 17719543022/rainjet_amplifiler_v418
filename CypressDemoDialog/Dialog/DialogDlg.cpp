@@ -76,6 +76,44 @@ bool g_frameCheakStart = FALSE; // FPGA外，USB FIFO中可能存有一帧数据
 UCHAR g_triggerValue = 0x31;
 UCHAR g_uartTrigValue = 0x31;
 UINT g_samplingRate = 24000;
+CString g_daoLianName[36] = {
+	"FP1",
+	"FP2",
+	"F3",
+	"FZ",
+	"F4",
+	"C3",
+	"CZ",
+	"C4",
+	"T7",
+	"T8",
+	"P3",
+	"PZ",
+	"P4",
+	"O1",
+	"OZ",
+	"O2",
+	"F7",
+	"F8",
+	"FT7",
+	"FC3",
+	"FCZ",
+	"FC4",
+	"FT8",
+	"TP7",
+	"CP3",
+	"CPZ",
+	"CP4",
+	"TP8",
+	"P7",
+	"P8",
+	"VEOG",
+	"HEOG",
+	"S1",
+	"S2",
+	"S3",
+	"S4"
+};
 
 namespace {
 	UCHAR INT2ASCII(int n)
@@ -246,10 +284,10 @@ namespace {
 		{
 			impedance = ((impedanceCode * 2500.0) / pow(2, 27)) / 2.15;
 		}
-		strTemp.Format("buffers[%03d-%03d]  -  \"%02X  %02X  %02X  %02X\"  -  %02d/36, %.1fkΩ." \
+		strTemp.Format("buffers[%03d-%03d]  -  \"%02X  %02X  %02X  %02X\"  -  %s, %02d/36, \t-  %.1fkΩ." \
 			, buffersStart, buffersEnd
 			, buffersInput[0][buffersStart], buffersInput[0][buffersStart + 1], buffersInput[0][buffersStart + 2], buffersInput[0][buffersStart + 3]
-			, uDlNum, impedance);
+			, g_daoLianName[uDlNum - 1], uDlNum, impedance);
 	}
 }
 
