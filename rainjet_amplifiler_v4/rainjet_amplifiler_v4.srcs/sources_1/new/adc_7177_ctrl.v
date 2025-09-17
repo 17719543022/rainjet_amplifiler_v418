@@ -1803,8 +1803,8 @@ end
 
 /*--------------IMPEDANCE SPECIAL--------------*/
 parameter           TIME_1ms = 48000;
-parameter           TIME_DLx = 145;
-parameter           IMPEDANCE_WIN_LEN = 128;
+parameter           TIME_DLx = 75;
+parameter           IMPEDANCE_WIN_LEN = 64;
 reg  [ 7:0]         dl_num_instruction_pre3;
 reg  [ 7:0]         dl_num_instruction_pre2;
 reg  [ 7:0]         dl_num_instruction_pre1;
@@ -2057,42 +2057,42 @@ always @(posedge clk)
 if ((counter_adc_wren == IMPEDANCE_WIN_LEN) & adc_wren)
 begin
     case (result_mux_cnt)
-        9'd6  : real_max_value_1  <= {real_sum_value_1[38:7] };
-        9'd7  : real_max_value_2  <= {real_sum_value_2[38:7] };
-        9'd8  : real_max_value_3  <= {real_sum_value_3[38:7] };
-        9'd9  : real_max_value_4  <= {real_sum_value_4[38:7] };
-        9'd10 : real_max_value_5  <= {real_sum_value_5[38:7] };
-        9'd11 : real_max_value_6  <= {real_sum_value_6[38:7] };
-        9'd12 : real_max_value_7  <= {real_sum_value_7[38:7] };
-        9'd13 : real_max_value_8  <= {real_sum_value_8[38:7] };
-        9'd14 : real_max_value_9  <= {real_sum_value_9[38:7] };
-        9'd15 : real_max_value_10 <= {real_sum_value_10[38:7]};
-        9'd16 : real_max_value_11 <= {real_sum_value_11[38:7]};
-        9'd17 : real_max_value_12 <= {real_sum_value_12[38:7]};
-        9'd18 : real_max_value_13 <= {real_sum_value_13[38:7]};
-        9'd19 : real_max_value_14 <= {real_sum_value_14[38:7]};
-        9'd20 : real_max_value_15 <= {real_sum_value_15[38:7]};
-        9'd21 : real_max_value_16 <= {real_sum_value_16[38:7]};
-        9'd22 : real_max_value_17 <= {real_sum_value_17[38:7]};
-        9'd23 : real_max_value_18 <= {real_sum_value_18[38:7]};
-        9'd24 : real_max_value_19 <= {real_sum_value_19[38:7]};
-        9'd25 : real_max_value_20 <= {real_sum_value_20[38:7]};
-        9'd26 : real_max_value_21 <= {real_sum_value_21[38:7]};
-        9'd27 : real_max_value_22 <= {real_sum_value_22[38:7]};
-        9'd28 : real_max_value_23 <= {real_sum_value_23[38:7]};
-        9'd29 : real_max_value_24 <= {real_sum_value_24[38:7]};
-        9'd30 : real_max_value_25 <= {real_sum_value_25[38:7]};
-        9'd31 : real_max_value_26 <= {real_sum_value_26[38:7]};
-        9'd32 : real_max_value_27 <= {real_sum_value_27[38:7]};
-        9'd33 : real_max_value_28 <= {real_sum_value_28[38:7]};
-        9'd34 : real_max_value_29 <= {real_sum_value_29[38:7]};
-        9'd35 : real_max_value_30 <= {real_sum_value_30[38:7]};
-        9'd36 : real_max_value_31 <= {real_sum_value_31[38:7]};
-        9'd37 : real_max_value_32 <= {real_sum_value_32[38:7]};
-        9'd38 : real_max_value_33 <= {real_sum_value_33[38:7]};
-        9'd39 : real_max_value_34 <= {real_sum_value_34[38:7]};
-        9'd40 : real_max_value_35 <= {real_sum_value_35[38:7]};
-        9'd41 : real_max_value_36 <= {real_sum_value_36[38:7]};
+        9'd6  : real_max_value_1  <= {real_sum_value_1[37:6] };
+        9'd7  : real_max_value_2  <= {real_sum_value_2[37:6] };
+        9'd8  : real_max_value_3  <= {real_sum_value_3[37:6] };
+        9'd9  : real_max_value_4  <= {real_sum_value_4[37:6] };
+        9'd10 : real_max_value_5  <= {real_sum_value_5[37:6] };
+        9'd11 : real_max_value_6  <= {real_sum_value_6[37:6] };
+        9'd12 : real_max_value_7  <= {real_sum_value_7[37:6] };
+        9'd13 : real_max_value_8  <= {real_sum_value_8[37:6] };
+        9'd14 : real_max_value_9  <= {real_sum_value_9[37:6] };
+        9'd15 : real_max_value_10 <= {real_sum_value_10[37:6]};
+        9'd16 : real_max_value_11 <= {real_sum_value_11[37:6]};
+        9'd17 : real_max_value_12 <= {real_sum_value_12[37:6]};
+        9'd18 : real_max_value_13 <= {real_sum_value_13[37:6]};
+        9'd19 : real_max_value_14 <= {real_sum_value_14[37:6]};
+        9'd20 : real_max_value_15 <= {real_sum_value_15[37:6]};
+        9'd21 : real_max_value_16 <= {real_sum_value_16[37:6]};
+        9'd22 : real_max_value_17 <= {real_sum_value_17[37:6]};
+        9'd23 : real_max_value_18 <= {real_sum_value_18[37:6]};
+        9'd24 : real_max_value_19 <= {real_sum_value_19[37:6]};
+        9'd25 : real_max_value_20 <= {real_sum_value_20[37:6]};
+        9'd26 : real_max_value_21 <= {real_sum_value_21[37:6]};
+        9'd27 : real_max_value_22 <= {real_sum_value_22[37:6]};
+        9'd28 : real_max_value_23 <= {real_sum_value_23[37:6]};
+        9'd29 : real_max_value_24 <= {real_sum_value_24[37:6]};
+        9'd30 : real_max_value_25 <= {real_sum_value_25[37:6]};
+        9'd31 : real_max_value_26 <= {real_sum_value_26[37:6]};
+        9'd32 : real_max_value_27 <= {real_sum_value_27[37:6]};
+        9'd33 : real_max_value_28 <= {real_sum_value_28[37:6]};
+        9'd34 : real_max_value_29 <= {real_sum_value_29[37:6]};
+        9'd35 : real_max_value_30 <= {real_sum_value_30[37:6]};
+        9'd36 : real_max_value_31 <= {real_sum_value_31[37:6]};
+        9'd37 : real_max_value_32 <= {real_sum_value_32[37:6]};
+        9'd38 : real_max_value_33 <= {real_sum_value_33[37:6]};
+        9'd39 : real_max_value_34 <= {real_sum_value_34[37:6]};
+        9'd40 : real_max_value_35 <= {real_sum_value_35[37:6]};
+        9'd41 : real_max_value_36 <= {real_sum_value_36[37:6]};
     default:
     begin
         real_max_value_1  <= real_max_value_1;
