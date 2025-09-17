@@ -1527,12 +1527,31 @@ void CDialogDlg::DoQuery()
 		CString strAnalysis("");
 		if (impedanceTriggerSwitch)
 		{
+			int totalDlNum = 0;
+			totalDlNum += buffersInput[0][20] << 24;
+			totalDlNum += buffersInput[0][21] << 16;
+			totalDlNum += buffersInput[0][22] << 8;
+			totalDlNum += buffersInput[0][23];
+
 			strAnalysis = _T("");
-			for (UINT t = 1; t <= TOTAL_DL_NUM_36; t++)
+			if (totalDlNum == TOTAL_DL_NUM_18)
 			{
-				ImpedanceRow(t, buffersInput, strTemp);
-				strAnalysis += strTemp;
-				strAnalysis += "\r\n";
+				for (UINT t = 1; t <= TOTAL_DL_NUM_36; t = t + 2)
+				{
+					ImpedanceRow(t, buffersInput, strTemp);
+					strAnalysis += strTemp;
+					strAnalysis += "\r\n";
+				}
+			}
+
+			if (totalDlNum == TOTAL_DL_NUM_36)
+			{
+				for (UINT t = 1; t <= TOTAL_DL_NUM_36; t++)
+				{
+					ImpedanceRow(t, buffersInput, strTemp);
+					strAnalysis += strTemp;
+					strAnalysis += "\r\n";
+				}
 			}
 
 			m_edtAnalysis.SetWindowTextA(strAnalysis);
