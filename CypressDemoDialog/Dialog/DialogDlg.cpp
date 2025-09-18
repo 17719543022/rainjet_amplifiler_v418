@@ -1614,8 +1614,8 @@ void CDialogDlg::DoQuery()
 				, buffersInput[0][38], buffersInput[0][39], buffersInput[0][38], buffersInput[0][39]);
 			strAnalysis += strTemp;
 			strAnalysis += "\r\n";
-			strTemp.Format("buffers[40-43]  -  \"%02X  %02X  %02X  %02X\"\t-  Impedance Mode or Not." \
-				, buffersInput[0][40], buffersInput[0][41], buffersInput[0][42], buffersInput[0][43]);
+			strTemp.Format("buffers[44-47]  -  \"%02X  %02X  %02X  %02X\"\t-  Impedance Mode or Not." \
+				, buffersInput[0][44], buffersInput[0][45], buffersInput[0][46], buffersInput[0][47]);
 			strAnalysis += strTemp;
 			m_edtAnalysis.SetWindowTextA(strAnalysis);
 		}
