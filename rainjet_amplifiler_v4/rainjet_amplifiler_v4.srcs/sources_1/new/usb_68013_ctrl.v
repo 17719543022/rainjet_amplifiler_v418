@@ -493,8 +493,8 @@ begin
     10'd497: USB_DATA_OUT_CMD <= {adc_trigger_length[7:0], adc_trigger_length[15:8]};
     10'd496: USB_DATA_OUT_CMD <= {batarry_protocol[23:16], batarry_protocol[31:24]}; // batarry_cells & batarry_state
     10'd495: USB_DATA_OUT_CMD <= {batarry_protocol[7:0], batarry_protocol[15:8]}; // batarry_protocol_volt
-    10'd494: USB_DATA_OUT_CMD <= {16'h0000}; // MaxFreq
-    10'd493: USB_DATA_OUT_CMD <= {16'h1027};
+    10'd494: USB_DATA_OUT_CMD <= {16'h0000};
+    10'd493: USB_DATA_OUT_CMD <= {7'h0, adc_sample_en_usb, 8'h0};
     10'd492: USB_DATA_OUT_CMD <= {16'h0000};
     10'd491: USB_DATA_OUT_CMD <= {7'h0, impedance_trigger_switch, 8'h0};
     10'd490: USB_DATA_OUT_CMD <= {real_max_value_1[23:16],  real_max_value_1[31:24] };
