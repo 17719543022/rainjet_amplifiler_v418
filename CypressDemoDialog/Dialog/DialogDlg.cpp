@@ -801,7 +801,7 @@ void CDialogDlg::SendTriggerValue(UCHAR value)
 	UCHAR QUEUE_SIZE = 1;
 	UCHAR PACKETS_PER_TRANSFER = 1;
 	long totalOutTransferSize = epBulkOut->MaxPktSize * PACKETS_PER_TRANSFER;
-	//epBulkOut->SetXferSize(totalOutTransferSize);
+	epBulkOut->SetXferSize(totalOutTransferSize);
 
 	OVERLAPPED  outOvLap;
 	UCHAR* bufferOutput = new UCHAR[totalOutTransferSize];
@@ -1188,7 +1188,7 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		//for (int mCount = 0; mCount < readLength; mCount++)
 		//{
 		//	fprintf(fp, "%02X", buffersInput[nCount][mCount]);
-		//
+
 		//	if (g_saveIndex + 1 == DATA_PAGE_LENGTH)
 		//	{
 		//		fprintf(fp, "\r");
