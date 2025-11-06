@@ -59,17 +59,18 @@ END_MESSAGE_MAP()
 #define DATA_PAGE_LENGTH 1024
 #define IDTIMER1 1
 #define IDTIMER2 2
-#define IDTIMER3 3
 
 unsigned short g_xBuff[DATA_SHOW_LENGTH] = { 0 };
 long g_yBuff[DATA_SHOW_LENGTH] = { 0 };
 double XValues[DATA_SHOW_LENGTH] = { 0 };
 double YValues[DATA_SHOW_LENGTH] = { 0 };
+UCHAR g_buffersTrigResult[DATA_PAGE_LENGTH] = { 0 };
 bool g_bKInstructionSend = FALSE;
 int g_daoLianIndex = 16;
+bool g_bButtonUSBTrigClicked = FALSE;
 bool g_bButtonUARTTrigClicked = FALSE;
 int g_writeIndex = 0;
-int g_saveIndex = 0;
+//int g_saveIndex = 0;
 int g_frameNumber = 32767;
 bool g_frameCheakStart = FALSE; // FPGA外，USB FIFO中可能存有一帧数据，所以需要从第二帧开始校验
 UCHAR g_triggerValue = 0x31;
@@ -1157,13 +1158,13 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 	GetSystemTime(&objStartTime);*/
 
 	long nCount = 0;
-	FILE* fp = NULL;
+	//FILE* fp = NULL;
 	while (pThis->m_bButtonADCSampleClicked == TRUE)
 	{
-		if ((fp == NULL) && (pThis->m_bButtonADCSampleClicked == TRUE))
-		{
-			fp = fopen("../samples/data.txt", "w");
-		}
+		//if ((fp == NULL) && (pThis->m_bButtonADCSampleClicked == TRUE))
+		//{
+		//	fp = fopen("../samples/data.txt", "w");
+		//}
 
 		long readLength = totalTransferSize;
 
@@ -1184,21 +1185,21 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		////////////Read the trasnferred data from the device///////////////////////////////////////
 		epBulkIn->FinishDataXfer(buffersInput[nCount], readLength, &inOvLap[nCount], contextsInput[nCount]);
 
-		for (int mCount = 0; mCount < readLength; mCount++)
-		{
-			fprintf(fp, "%02X", buffersInput[nCount][mCount]);
+		//for (int mCount = 0; mCount < readLength; mCount++)
+		//{
+		//	fprintf(fp, "%02X", buffersInput[nCount][mCount]);
 
-			if (g_saveIndex + 1 == DATA_PAGE_LENGTH)
-			{
-				fprintf(fp, "\r");
-			}
-			else
-			{
-				fprintf(fp, "  ");
-			}
-			
-			g_saveIndex = (g_saveIndex + 1) % DATA_PAGE_LENGTH;
-		}
+		//	if (g_saveIndex + 1 == DATA_PAGE_LENGTH)
+		//	{
+		//		fprintf(fp, "\r");
+		//	}
+		//	else
+		//	{
+		//		fprintf(fp, "  ");
+		//	}
+		//	
+		//	g_saveIndex = (g_saveIndex + 1) % DATA_PAGE_LENGTH;
+		//}
 
 		int frameNumber = 0;
 		frameNumber += buffersInput[nCount][4] << 24;
@@ -1224,12 +1225,16 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		if ((buffersInput[nCount][0] == 0xAA)
 			&& (buffersInput[nCount][1] == 0x00)
 			&& (buffersInput[nCount][2] == 0x00)
-			&& (buffersInput[nCount][3] != 0x00))
+			&& ((buffersInput[nCount][3] == g_triggerValue) || (buffersInput[nCount][3] == g_uartTrigValue))
+			&& ((g_bButtonUSBTrigClicked == TRUE) || (g_bButtonUARTTrigClicked == TRUE)))
 		{
-			CString strThis("");
-			strThis.Format("%02X", buffersInput[nCount][3]);
+			for (int mCount = 0; mCount < readLength; mCount++)
+			{
+				g_buffersTrigResult[mCount] = buffersInput[nCount][mCount];
+			}
 
-			pThis->m_edtQueryResult.SetWindowText(strThis);
+			g_bButtonUSBTrigClicked = FALSE;
+			g_bButtonUARTTrigClicked = FALSE;
 		}
 
 		g_yBuff[g_writeIndex] = buffersInput[nCount][g_daoLianIndex] << 20;
@@ -1272,11 +1277,11 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		if (++nCount >= QUEUE_SIZE)
 		{
 			nCount = 0;
-			if ((pThis->m_bButtonADCSampleClicked == FALSE) && (fp != NULL))
-			{
-				fclose(fp);
-				fp = NULL;
-			}
+			//if ((pThis->m_bButtonADCSampleClicked == FALSE) && (fp != NULL))
+			//{
+			//	fclose(fp);
+			//	fp = NULL;
+			//}
 		}
 	}
 
@@ -1341,13 +1346,6 @@ void CDialogDlg::OnTimer(UINT_PTR nIDEvent)
 	case IDTIMER2:
 	{
 		DoQuery();
-
-		break;
-	}
-	case IDTIMER3:
-	{
-		SendTriggerValue(g_triggerValue + 1);
-		g_triggerValue = (g_triggerValue + 1) % 64;
 
 		break;
 	}
@@ -1923,65 +1921,97 @@ void CDialogDlg::OnBnClickedButtonSetSampleFreq()
 
 void CDialogDlg::OnBnClickedButtonTrigger()
 {
-	SetTimer(IDTIMER3, 1500, NULL);
+	g_bButtonUSBTrigClicked = TRUE;
+
+	char ch1[10];
+	GetDlgItem(IDC_EDIT_TRIG_VALUE)->GetWindowText(ch1, 10);
+	g_triggerValue = atoi(ch1);
+
+	SendTriggerValue(g_triggerValue);
+
+	while (g_bButtonUSBTrigClicked);
+
+	CString strBytes(""), strTemp;
+	for (int nCount = 0; nCount < DATA_PAGE_LENGTH; nCount++)
+	{
+		if (nCount % 16 == 0)
+		{
+			strTemp.Format("%04X", nCount);
+			strBytes += strTemp;
+			strBytes += "    ";
+		}
+
+		strTemp.Format("%02X", g_buffersTrigResult[nCount]);
+		strBytes += strTemp;
+
+		if ((nCount + 1) % 16 == 0)
+		{
+			strBytes += "\r\n";
+		}
+		else
+		{
+			strBytes += "  ";
+		}
+	}
+	m_edtQueryResult.SetWindowText(strBytes);
 }
 
 void CDialogDlg::OnBnClickedButtonUartTrig()
 {
-//	char portName[256] = { 0 };
-//	int SelParity;
-//	int SelDataBits;
-//	int SelStop;
-//
-//	UpdateData(true);
-//	CString temp;
-//	m_PortNr.GetWindowText(temp);
-//#ifdef UNICODE
-//	strcpy_s(portName, 256, CW2A(temp.GetString()));
-//#else
-//	strcpy_s(portName, 256, temp.GetBuffer());
-//#endif	
-//
-//	if ((!m_SerialPort.isOpen()) || (strcmp(m_SerialPort.getPortName(), temp) != 0)) ///没有打开串口
-//	{
-//		m_SerialPort.setReadIntervalTimeout(0);
-//		m_SerialPort.init(portName, itas109::BaudRate::BaudRate115200, itas109::Parity(ParityNone), itas109::DataBits(DataBits8), itas109::StopBits(StopOne));
-//		m_SerialPort.open();
-//	}
-//
-//	g_bButtonUARTTrigClicked = TRUE;
-//
-//	char ch1[10];
-//	GetDlgItem(IDC_EDIT_UART_TRIG)->GetWindowText(ch1, 10);
-//	g_uartTrigValue = atoi(ch1);
-//
-//	SendUartTrigValue(g_uartTrigValue);
-//
-//	while (g_bButtonUARTTrigClicked);
-//
-//	CString strBytes(""), strTemp;
-//	for (int nCount = 0; nCount < DATA_PAGE_LENGTH; nCount++)
-//	{
-//		if (nCount % 16 == 0)
-//		{
-//			strTemp.Format("%04X", nCount);
-//			strBytes += strTemp;
-//			strBytes += "    ";
-//		}
-//
-//		strTemp.Format("%02X", g_buffersTrigResult[nCount]);
-//		strBytes += strTemp;
-//
-//		if ((nCount + 1) % 16 == 0)
-//		{
-//			strBytes += "\r\n";
-//		}
-//		else
-//		{
-//			strBytes += "  ";
-//		}
-//	}
-//	m_edtQueryResult.SetWindowText(strBytes);
+	char portName[256] = { 0 };
+	int SelParity;
+	int SelDataBits;
+	int SelStop;
+
+	UpdateData(true);
+	CString temp;
+	m_PortNr.GetWindowText(temp);
+#ifdef UNICODE
+	strcpy_s(portName, 256, CW2A(temp.GetString()));
+#else
+	strcpy_s(portName, 256, temp.GetBuffer());
+#endif	
+
+	if ((!m_SerialPort.isOpen()) || (strcmp(m_SerialPort.getPortName(), temp) != 0)) ///没有打开串口
+	{
+		m_SerialPort.setReadIntervalTimeout(0);
+		m_SerialPort.init(portName, itas109::BaudRate::BaudRate115200, itas109::Parity(ParityNone), itas109::DataBits(DataBits8), itas109::StopBits(StopOne));
+		m_SerialPort.open();
+	}
+
+	g_bButtonUARTTrigClicked = TRUE;
+
+	char ch1[10];
+	GetDlgItem(IDC_EDIT_UART_TRIG)->GetWindowText(ch1, 10);
+	g_uartTrigValue = atoi(ch1);
+
+	SendUartTrigValue(g_uartTrigValue);
+
+	while (g_bButtonUARTTrigClicked);
+
+	CString strBytes(""), strTemp;
+	for (int nCount = 0; nCount < DATA_PAGE_LENGTH; nCount++)
+	{
+		if (nCount % 16 == 0)
+		{
+			strTemp.Format("%04X", nCount);
+			strBytes += strTemp;
+			strBytes += "    ";
+		}
+
+		strTemp.Format("%02X", g_buffersTrigResult[nCount]);
+		strBytes += strTemp;
+
+		if ((nCount + 1) % 16 == 0)
+		{
+			strBytes += "\r\n";
+		}
+		else
+		{
+			strBytes += "  ";
+		}
+	}
+	m_edtQueryResult.SetWindowText(strBytes);
 }
 
 void CDialogDlg::OnBnClickedCheckImpedance()
