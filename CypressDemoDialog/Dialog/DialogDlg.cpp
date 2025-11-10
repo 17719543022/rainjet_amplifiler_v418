@@ -59,7 +59,6 @@ END_MESSAGE_MAP()
 #define DATA_PAGE_LENGTH 1024
 #define IDTIMER1 1
 #define IDTIMER2 2
-#define IDTIMER3 3
 
 unsigned short g_xBuff[DATA_SHOW_LENGTH] = { 0 };
 long g_yBuff[DATA_SHOW_LENGTH] = { 0 };
@@ -802,7 +801,7 @@ void CDialogDlg::SendTriggerValue(UCHAR value)
 	UCHAR QUEUE_SIZE = 1;
 	UCHAR PACKETS_PER_TRANSFER = 1;
 	long totalOutTransferSize = epBulkOut->MaxPktSize * PACKETS_PER_TRANSFER;
-	//epBulkOut->SetXferSize(totalOutTransferSize);
+	epBulkOut->SetXferSize(totalOutTransferSize);
 
 	OVERLAPPED  outOvLap;
 	UCHAR* bufferOutput = new UCHAR[totalOutTransferSize];
@@ -1226,12 +1225,16 @@ DWORD WINAPI CDialogDlg::PerformADCSampling(LPVOID lParam)
 		if ((buffersInput[nCount][0] == 0xAA)
 			&& (buffersInput[nCount][1] == 0x00)
 			&& (buffersInput[nCount][2] == 0x00)
-			&& (buffersInput[nCount][3] != 0x00)
+			&& ((buffersInput[nCount][3] == g_triggerValue) || (buffersInput[nCount][3] == g_uartTrigValue))
 			&& ((g_bButtonUSBTrigClicked == TRUE) || (g_bButtonUARTTrigClicked == TRUE)))
 		{
-			CString strCaptured;
-			strCaptured.Format("AA  00  00  %02X", buffersInput[nCount][3]);
-			pThis->m_edtQueryResult.SetWindowText(strCaptured);
+			for (int mCount = 0; mCount < readLength; mCount++)
+			{
+				g_buffersTrigResult[mCount] = buffersInput[nCount][mCount];
+			}
+
+			g_bButtonUSBTrigClicked = FALSE;
+			g_bButtonUARTTrigClicked = FALSE;
 		}
 
 		g_yBuff[g_writeIndex] = buffersInput[nCount][g_daoLianIndex] << 20;
@@ -1343,13 +1346,6 @@ void CDialogDlg::OnTimer(UINT_PTR nIDEvent)
 	case IDTIMER2:
 	{
 		DoQuery();
-
-		break;
-	}
-	case IDTIMER3:
-	{
-		SendTriggerValue(g_triggerValue + 1);
-		g_triggerValue = (g_triggerValue + 1) % 64;
 
 		break;
 	}
@@ -1927,39 +1923,37 @@ void CDialogDlg::OnBnClickedButtonTrigger()
 {
 	g_bButtonUSBTrigClicked = TRUE;
 
-	SetTimer(IDTIMER3, 1250, NULL);
+	char ch1[10];
+	GetDlgItem(IDC_EDIT_TRIG_VALUE)->GetWindowText(ch1, 10);
+	g_triggerValue = atoi(ch1);
 
-	//char ch1[10];
-	//GetDlgItem(IDC_EDIT_TRIG_VALUE)->GetWindowText(ch1, 10);
-	//g_triggerValue = atoi(ch1);
+	SendTriggerValue(g_triggerValue);
 
-	//SendTriggerValue(g_triggerValue);
+	while (g_bButtonUSBTrigClicked);
 
-	//while (g_bButtonUSBTrigClicked);
+	CString strBytes(""), strTemp;
+	for (int nCount = 0; nCount < DATA_PAGE_LENGTH; nCount++)
+	{
+		if (nCount % 16 == 0)
+		{
+			strTemp.Format("%04X", nCount);
+			strBytes += strTemp;
+			strBytes += "    ";
+		}
 
-	//CString strBytes(""), strTemp;
-	//for (int nCount = 0; nCount < DATA_PAGE_LENGTH; nCount++)
-	//{
-	//	if (nCount % 16 == 0)
-	//	{
-	//		strTemp.Format("%04X", nCount);
-	//		strBytes += strTemp;
-	//		strBytes += "    ";
-	//	}
+		strTemp.Format("%02X", g_buffersTrigResult[nCount]);
+		strBytes += strTemp;
 
-	//	strTemp.Format("%02X", g_buffersTrigResult[nCount]);
-	//	strBytes += strTemp;
-
-	//	if ((nCount + 1) % 16 == 0)
-	//	{
-	//		strBytes += "\r\n";
-	//	}
-	//	else
-	//	{
-	//		strBytes += "  ";
-	//	}
-	//}
-	//m_edtQueryResult.SetWindowText(strBytes);
+		if ((nCount + 1) % 16 == 0)
+		{
+			strBytes += "\r\n";
+		}
+		else
+		{
+			strBytes += "  ";
+		}
+	}
+	m_edtQueryResult.SetWindowText(strBytes);
 }
 
 void CDialogDlg::OnBnClickedButtonUartTrig()
