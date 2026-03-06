@@ -30,6 +30,8 @@
 #define IDC_STATIC_AMP                  1012
 #define IDC_BUTTON3                     1013
 #define IDC_BUTTON_IMPEDANCE            1013
+#define IDC_BUTTON_RECONNECT            1013
+#define IDC_BUTTON_RECONNECT_USB        1013
 #define IDC_EDIT3                       1014
 #define IDC_EDIT_IMPEDANCE              1014
 #define IDC_BUTTON4                     1015

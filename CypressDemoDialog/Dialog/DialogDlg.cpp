@@ -351,6 +351,7 @@ BEGIN_MESSAGE_MAP(CDialogDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_UART_TRIG, &CDialogDlg::OnBnClickedButtonUartTrig)
 	ON_BN_CLICKED(IDC_CHECK_18_DL_NUM, &CDialogDlg::OnBnClickedCheck18DlNum)
 	ON_BN_CLICKED(IDC_CHECK_IMPEDANCE, &CDialogDlg::OnBnClickedCheckImpedance)
+	ON_BN_CLICKED(IDC_BUTTON_RECONNECT_USB, &CDialogDlg::OnBnClickedButtonReconnectUsb)
 END_MESSAGE_MAP()
 
 // CDialogDlg 消息处理程序
@@ -886,142 +887,6 @@ void CDialogDlg::SendImpedanceInstruction(UINT dlNum)
 	CloseHandle(outOvLap.hEvent);
 }
 
-DWORD CDialogDlg::ClearUSBFIFO()
-{
-	CString strINData = m_strEndPointEnumerate0x86;
-	TCHAR* pEnd;
-	BYTE inEpAddress = 0x0;
-
-	// Extract the endpoint addresses........
-	strINData = strINData.Right(4);
-
-	//inEpAddress = (BYTE)wcstoul(strINData.GetBuffer(0), &pEnd, 16);
-	inEpAddress = strtol(strINData, &pEnd, 16);
-	CCyUSBEndPoint* epBulkIn = m_selectedUSBDevice->EndPointOf(inEpAddress);
-
-	if (epBulkIn == NULL) return -1;
-
-	//
-	// Get the max packet size (USB Frame Size).
-	// For bulk burst transfer, this size represent bulk burst size.
-	// Transfer size is now multiple USB frames defined by PACKETS_PER_TRANSFER
-	//
-	UCHAR QUEUE_SIZE = 16;
-	//UCHAR PACKETS_PER_TRANSFER = 2;
-	long totalTransferSize = epBulkIn->MaxPktSize * 2;
-	epBulkIn->SetXferSize(totalTransferSize);
-
-	PUCHAR* buffersInput = new PUCHAR[QUEUE_SIZE];
-	PUCHAR* contextsInput = new PUCHAR[QUEUE_SIZE];
-	OVERLAPPED		inOvLap[MAX_QUEUE_SZ];
-
-	// Allocate all the buffers for the queues
-	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
-	{
-		buffersInput[nCount] = new UCHAR[totalTransferSize];
-		inOvLap[nCount].hEvent = CreateEvent(NULL, false, false, NULL);
-
-		memset(buffersInput[nCount], 0xEF, totalTransferSize);
-	}
-
-	// Queue-up the first batch of transfer requests
-	for (int nCount = 0; nCount < QUEUE_SIZE; nCount++)
-	{
-		////////////////////BeginDataXFer will kick start the IN transactions.................
-		contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
-		if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
-		{
-
-			if (epBulkIn->UsbdStatus == USBD_STATUS_ENDPOINT_HALTED)
-			{
-				epBulkIn->Reset();
-				epBulkIn->Abort();
-				Sleep(50);
-				contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
-
-			}
-			if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
-			{
-				// BeginDataXfer failed
-				// Handle the error now.
-				epBulkIn->Abort();
-				for (int j = 0; j < QUEUE_SIZE; j++)
-				{
-					CloseHandle(inOvLap[j].hEvent);
-					delete[] buffersInput[j];
-				}
-
-				// Bail out......
-				delete[]contextsInput;
-				delete[] buffersInput;
-				CString strMsg;
-				strMsg.Format("BeginDataXfer Failed with (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
-				AfxMessageBox(strMsg);
-				return -2;
-			}
-		}
-	}
-
-	long nCount = 0;
-
-	long readLength = totalTransferSize;
-
-	//////////Wait till the transfer completion..///////////////////////////
-	if (!epBulkIn->WaitForXfer(&inOvLap[nCount], TIMEOUT_PER_TRANSFER_MILLI_SEC))
-	{
-		//epBulkIn->Abort();
-		//if (epBulkIn->LastError == ERROR_IO_PENDING)
-		//	WaitForSingleObject(inOvLap[nCount].hEvent, TIMEOUT_PER_TRANSFER_MILLI_SEC);
-
-		//epBulkIn->Reset();
-		//Sleep(50);
-		m_selectedUSBDevice->Reset();
-		Sleep(TIMEOUT_PER_TRANSFER_MILLI_SEC);
-		return -2;
-	}
-
-	////////////Read the trasnferred data from the device///////////////////////////////////////
-	epBulkIn->FinishDataXfer(buffersInput[nCount], readLength, &inOvLap[nCount], contextsInput[nCount]);
-
-	// Re-submit this queue element to keep the queue full
-	contextsInput[nCount] = epBulkIn->BeginDataXfer(buffersInput[nCount], totalTransferSize, &inOvLap[nCount]);
-	if (epBulkIn->NtStatus || epBulkIn->UsbdStatus)
-	{
-		// BeginDataXfer failed............
-		// Time to bail out now............
-		epBulkIn->Abort();
-		for (int j = 0; j < QUEUE_SIZE; j++)
-		{
-			CloseHandle(inOvLap[j].hEvent);
-			delete[] buffersInput[j];
-		}
-		delete[]contextsInput;
-
-		CString strMsg;
-		strMsg.Format("BeginDataXfer Failed during buffer re-cycle (NT Status = 0x%X and USBD Status = 0x%X). Bailing out...", epBulkIn->NtStatus, epBulkIn->UsbdStatus);
-		AfxMessageBox(strMsg);
-		return -3;
-	}
-	if (++nCount >= QUEUE_SIZE)
-	{
-		nCount = 0;
-	}
-
-	epBulkIn->Abort();
-	for (int j = 0; j < QUEUE_SIZE; j++)
-	{
-		CloseHandle(inOvLap[j].hEvent);
-		delete[] buffersInput[j];
-		delete[] contextsInput[j];
-	}
-
-	// Bail out......
-	delete[]contextsInput;
-	delete[] buffersInput;
-
-	return 0;
-}
-
 void CDialogDlg::OnBnClickedButtonAdcSample()
 {
 	char ch1[10];
@@ -1070,8 +935,6 @@ void CDialogDlg::OnBnClickedButtonAdcSample()
 		StopAdcSample();
 
 		KillTimer(IDTIMER1);
-
-		ClearUSBFIFO();
 	}
 }
 
@@ -2122,6 +1985,24 @@ bool CDialogDlg::SurveyExistingComm()
 	m_PortNr.SetCurSel(0);
 
 	return true;
+}
+
+
+void CDialogDlg::OnBnClickedButtonReconnectUsb()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (m_selectedUSBDevice)
+	{
+		if (m_selectedUSBDevice->IsOpen()) m_selectedUSBDevice->Close();
+		delete m_selectedUSBDevice;
+	}
+
+	m_selectedUSBDevice = new CCyUSBDevice(this->m_hWnd, CYUSBDRV_GUID, true);
+
+	SurveyExistingDevices();
+	EnumerateEndpointForTheSelectedDevice();
+
+	DoQuery();
 }
 
 

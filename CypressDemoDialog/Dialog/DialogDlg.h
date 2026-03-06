@@ -53,6 +53,7 @@ public:
 	afx_msg void OnBnClickedCheckImpedance();
 	afx_msg void OnBnClickedButtonSend();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+	afx_msg void OnBnClickedButtonReconnectUsb();
 private:
 	bool SurveyExistingDevices();
 	bool SurveyExistingComm();
@@ -64,7 +65,6 @@ private:
 	void SendUartTrigValue(UCHAR value);
 	void SendImpedanceInstruction(UINT dlNum);
 	static DWORD WINAPI PerformADCSampling(LPVOID lParam);
-	DWORD ClearUSBFIFO();
 	void DataBuffInit();
 	void ChartCtrlInit();
 	void DoQuery();
